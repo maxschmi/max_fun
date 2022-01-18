@@ -1,0 +1,11 @@
+Steuerdatei;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+Ergebis Pfad;_output_dir_;;;;;;;;;;;;;;;;;;;;
+Reihen Ordner Pfad;_weather_dir_;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+Anzahl an Flaechen;_num_areas_;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+No;Lanndnutzung;Versiegelung (%);Bodentiefe (cm);GWFA (cm);MPD_v (1/m²);MPL_v (cm);MPD_h (1/m²);TP (mm/h);SL (%);nFK (%);LK  (Vol.%);PWP (Vol.%);Theta (Vol.%);KS (mm/h);Muldenspeicher (mm);Baueme;Urban;N Wichtung;T Wichtung;ET Wichtung;N Wichtung Winter

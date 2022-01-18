@@ -1,0 +1,13 @@
+geopandas
+shapely
+pandas
+numpy
+progressbar2
+re
+rasterio
+rasterstats
+itertools
+matplotlib
+ftplib
+tarfile
+requests
