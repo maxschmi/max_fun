@@ -15,7 +15,6 @@
 __author__ = "Max Schmit"
 __copyright__ = "Copyright 2021, Max Schmit"
 __version__ = "1.0.0"
-__email__ = "maxschm@hotmail.com"
 
 # libraries
 import requests
