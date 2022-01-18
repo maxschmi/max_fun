@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """A collection of some helpfull functions to work with matplotlib."""
+__author__ = "Max Schmit"
+__copyright__ = "Copyright 2021, Max Schmit"
 
 import matplotlib as mpl
 
