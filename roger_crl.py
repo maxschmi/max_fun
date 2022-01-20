@@ -300,7 +300,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     if not weather_dir.is_dir():
         weather_dir.mkdir()
     if not cf_path.suffix == ".csv":
-        raise ValueError("The  given cf_path has no .csv ending.")
+        raise ValueError("The given cf_path has no .csv ending.")
     if not cf_path.parent.is_dir():
         cf_path.parent.mkdir()
 
@@ -929,8 +929,6 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
 
     return results
 
-
-
 def import_tot_zip(zip_fp, with_input=True, columns="all", index_cols=["SIM_ID", "lanu_ID", "BF_ID"]):
     """
     Import all the results from one output-zipfile.
@@ -953,7 +951,7 @@ def import_tot_zip(zip_fp, with_input=True, columns="all", index_cols=["SIM_ID",
     Raises
     ------
     KeyError
-        If the providen columns do not exist.
+        If the columns do not exist.
 
     Returns
     -------
