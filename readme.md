@@ -1,1 +1,1 @@
-A collection of functions
+A collection of different usefull functions
