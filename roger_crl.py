@@ -28,8 +28,37 @@ from zipfile import ZipFile
 import re
 import warnings
 from multiprocessing import Pool
+from packaging import version as pkgv
 
 
+ROGER_CF_COLUMNS = {
+    "index": "No.",
+    "Lanndnutzung": "Lanndnutzung", 
+    "Versiegelung": "Versiegelung (%)", 
+    "Bodentiefe": "Bodentiefe (cm)", 
+    "GWFA": "GWFA-Wurzeltiefe (cm)", 
+    "MPD_v": "MPD_v (1/m²)",
+    "MPL_v": "MPL_v (cm)", 
+    "MPD_h": "MPD_h (1/m²)", 
+    "TP": "TP (mm/h)", 
+    "SL": "SL (%)", 
+    "nFK": "nFK (%)", 
+    "LK": "LK  (Vol.%)", 
+    "PWP": "PWP (Vol.%)", 
+    "Theta": "Theta (Vol.%)", 
+    "KS": "KS (mm/h)",
+    "Muldenspeicher": "Muldenspeicher (mm)", 
+    "Baueme": "Baueme", 
+    "Urban": "Urban", 
+    "N_Wichtung": "N Wichtung (%)", 
+    "N Wichtung Sommer": "N Wichtung Sommer (%)", 
+    "T_Diff": "T Zuschlag (°C)",
+    "ET_Wichtung": "ET Wichtung (%)",
+    "N Wichtung Winter": "N Wichtung Winter (%)",
+    "Expositionsfaktor": "Expositionsfaktor (%)",
+    "Flaechenanteil": "Flaechenanteil (%)"
+}
+this_dir, _ = os.path.split(__file__)
 # privat functions
 ##################
 
@@ -199,7 +228,7 @@ def _split_date(dates):
 # functions
 ###########
 
-def get_cf_df_template(version="2_92_1"):
+def get_cf_df_template(version="2_92_1", with_unit=False):
     """
     Get an empty DataFrame as a template for the soil configuration for RoGeR.
 
@@ -210,6 +239,10 @@ def get_cf_df_template(version="2_92_1"):
         Add "+A" to add an Area column.
         E.g. "2_92_1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
         The default is "2_92_1".
+    with_unit : bool, optional
+        Should the columns names be with their unit?
+        The default is False.
+
 
     Returns
     -------
@@ -218,34 +251,39 @@ def get_cf_df_template(version="2_92_1"):
         for RoGeR.
 
     """
+    # get the base columns
     columns = ["Lanndnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
                "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
                "Muldenspeicher", "Baueme", "Urban", "N_Wichtung", "T_Diff",
                "ET_Wichtung"]
 
-    # check version for N-Winter Wichtung and area
-    if type(version) == str:
-        if version.count("_") == 2:
-            # check for area
-            do_area = re.search("\+[Aa]$", version)
-            if do_area:
-                version = re.sub(do_area.re, "", version)
-            # split versions numbers
-            v_1, v_2, v_3 = map(int, (version.split("_")))
-    if "v_1" not in locals():
-        raise ValueError("The version " + str(version) +
-                         " is not in a valid format")
+    # check for area
+    do_area = re.search("\+[Aa]$", version)
+    if do_area:
+        version = re.sub(do_area.re, "", version)
 
-    if (((v_1 == 2) and (v_2 > 93) and (v_3 >= 3)) or
-        ((v_1 == 2) and (v_2 > 92))):
+    # parse the version
+    version = pkgv.parse(version.replace("_", "."))
+
+    # check for winter precipitation factor
+    if version >= pkgv.parse("2.93.3"):
+        columns[columns.index("N_Wichtung")] = "N Wichtung Sommer"
         columns.append("N Wichtung Winter")
+
+    # check for exposition factor to be added
+    if version >= pkgv.parse("2.94.6"):
+        columns.append("Expositionsfaktor")
     
+    # add the area portion if wanted
     if do_area:
         columns.append("Flaechenanteil")
 
     # create the table
     table = pd.DataFrame(columns=columns)
     table.index.name = "No"
+    if with_unit:
+        table.rename(ROGER_CF_COLUMNS, axis=1, inplace=True)
+
     return table
 
 
@@ -311,22 +349,15 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     do_area = re.search("\+[Aa]$", rog_ver)
 
     # get the header template
-    this_dir, _ = os.path.split(__file__)
-    if (len(cf_tmplt.columns) == 20):
-        tmplt_path = os.path.join(this_dir, "data",
-                                  "roger_cf_template_header_v1.csv")
-    elif (len(cf_tmplt.columns) == 21) and not do_area:
-        tmplt_path = os.path.join(this_dir, "data",
-                                  "roger_cf_template_header_v3.csv")
-    elif (len(cf_tmplt.columns) == 22) and do_area:
-        tmplt_path = os.path.join(this_dir, "data",
-                                  "roger_cf_template_header_v3+A.csv")
-    else:
-        raise NameError("The given cf_tabel has not the right amount of " +
-                        "columns for one of the available Versions of RoGeR.")
-
+    tmplt_path = os.path.join(
+        this_dir, "data", "roger_cf_template_header_20Zeilen.csv")
     with open(tmplt_path, "r", encoding="ANSI") as f:
         l_header = f.read()
+
+    # add columns to header
+    add_cols = len(cf_tmplt.columns) - 20
+    l_header = "\n".join(
+        [l + add_cols*";" for l in l_header.split("\n")])
 
     # make paths absolute or relative and add them to header
     if dir_rel_to is None:
@@ -343,13 +374,20 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     l_header = l_header.replace("_num_areas_", str(len(cf_table)))
 
     # set table as string
-    if len(cf_table.columns) == len(cf_tmplt.columns):
-        bool_index = True
-    elif len(cf_table.columns) > len(cf_tmplt.columns):
+    bool_index = True
+    if len(cf_table.columns) > len(cf_tmplt.columns):
         bool_index = False
 
-    l_table = cf_table.to_csv(header=False, sep=";", line_terminator="\n",
-                              index=bool_index, encoding="ANSI")
+    # order and rename columns
+    col_order = [key for key in ROGER_CF_COLUMNS.keys() 
+                     if key in cf_table.columns]
+    cf_table = cf_table[col_order]
+    cf_table.rename(ROGER_CF_COLUMNS, axis=1, inplace=True)
+
+    # write table lines
+    l_table = cf_table.to_csv(
+        sep=";", line_terminator="\n",
+        index=bool_index, encoding="ANSI")
 
     # write to file
     with open(cf_path, "w", encoding="ANSI") as f:

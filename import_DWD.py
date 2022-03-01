@@ -7,7 +7,6 @@ __copyright__ = "Copyright 2021, Max Schmit"
 
 # libraries
 import os
-os.environ["PROJ_LIB"] = "C:\Program Files\GDAL\projlib"
 import geopandas as gpd
 import pandas as pd
 from datetime import datetime
@@ -25,11 +24,11 @@ from socket import gethostname
 
 # logger
 log = logging.getLogger("import_DWD")
-this_dir = os.getcwd()
+this_dir = Path(__file__).parent
 log_dir = Path(this_dir).joinpath("logs")
 if not log_dir.is_dir(): log_dir.mkdir()
-log_fh = logging.FileHandler(this_dir + "/logs/DWD_import_" +
-                             gethostname() + ".txt")
+log_fh = logging.FileHandler(
+    log_dir.joinpath("DWD_import_" + gethostname() + ".txt"))
 log.setLevel(logging.DEBUG)
 log.addHandler(log_fh)
 
@@ -153,7 +152,7 @@ def get_dwd_file(zip_filepath):
         if len(files) == 0:
             raise ValueError(
                 "There is no file matching the pattern: produkt " +
-                "in the zip files: \n- " + 
+                "in the zip files: \n- " +
                 "\n- ".join(compressed_folder_files))
         elif len(files) > 1:
             raise ValueError(
@@ -261,7 +260,7 @@ def get_dwd_data(station_id, ftp_folder):
             df_all = df_all.groupby(df_all.index).mean()
     except:
         pass
-    
+
     # check if everything worked
     if "df_all" not in locals():
         raise ImportError("The file(s) for the dwd station " +
@@ -272,7 +271,7 @@ def get_dwd_data(station_id, ftp_folder):
 def _concat_dwd_data(df1, df2):
     """Concatenet 2 dwd stations dataframes to one.
 
-    Is usefull for concatenating several dataframes of the same station together 
+    Is usefull for concatenating several dataframes of the same station together
     or historical and recent datas.
 
     Parameters
