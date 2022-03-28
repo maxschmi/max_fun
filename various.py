@@ -48,3 +48,39 @@ def get_objects_size(globals, min_kb=1000):
                     for i in range(len(obj_sizes))]
     for name, size in zip(obj_names, obj_sizes):
         print("{name}: {size:,.0f} kB".format(name=name, size=size))
+
+def replace(s, mapper=None, **kwargs):
+    """Replace several string parts in a string.
+
+    Parameters
+    ----------
+    string : str
+        Th input string
+    mapper : dict or None, optional
+        A dictionary with the changes that should be done.
+        If None, then the replacement should be added as additional arguments like pattern="replacement"
+        The default is None.
+    **kwargs : optional
+        The replacements that should get applied as parameters.
+        Add the replacements like pattern="replacement"
+
+    Returns
+    -------
+    str
+        The changed string.
+
+    Raises
+    ------
+    ValueError
+        If no mapper is given.
+    """    
+    if mapper is not None and kwargs is not None:
+        mapper.update(kwargs)
+    elif mapper is None and kwargs is not None:
+        mapper = kwargs
+    else:
+        raise ValueError("No mapper provided")
+
+    for key in mapper:
+        s = s.replace(key, mapper[key])
+    return s
