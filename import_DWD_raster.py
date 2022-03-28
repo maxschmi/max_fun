@@ -22,6 +22,7 @@ if "PROJ_LIB" not in os.environ:
 import geopandas as gpd
 from pathlib import Path
 import gzip
+import zipfile
 import shutil
 import re
 import pandas as pd
@@ -526,7 +527,7 @@ def download_regnie_daily(folder, years):
 
 def download_ma_t(folder):
     """
-    Download the newest multi_annual temperature files and axtract them.
+    Download the newest multi_annual temperature files and extract them.
 
     Parameters
     ----------
@@ -637,7 +638,7 @@ def download_ma(folder, para):
         The folder path where the files get stored in.
     para : str
         The parameter for which to download the files.
-        Either 'N', 'ET' or 'T'.
+        Either 'N', 'ET', 'T', 'SUN_DUR' or 'SOL_RAD'.
 
     Raises
     ------
@@ -661,6 +662,10 @@ def download_ma(folder, para):
                  "ftp_folder": "/climate_environment/CDC/grids_germany/multi_annual/evapo_p/"},
            "N": {"bands": 17,
                  "ftp_folder": "/climate_environment/CDC/grids_germany/multi_annual/precipitation/"},
+           "SUN_DUR": {"bands": 17,
+                 "ftp_folder": "/climate_environment/CDC/grids_germany/multi_annual/sunshine_duration/"},
+           "SOL_RAD": {"bands": 12,
+                 "ftp_folder": "/climate_environment/CDC/grids_germany/multi_annual/radiation_global/"},
            "ma_codes": {"01": "JAN", "02": "FEB", "03": "MAE", "04": "APR",
                         "05": "MAI", "06": "JUN", "07": "JUL", "08": "AUG",
                         "09": "SEP", "10": "OKT", "11": "NOV", "12": "DEZ",
@@ -670,32 +675,39 @@ def download_ma(folder, para):
 
     para = para.upper()
     if para not in dic:
-        raise NameError("The given para value '" + str(para) + " is not valid!")
+        raise NameError("The given para value '" + str(para) + "' is not valid!")
 
     # open ftp connection
     ftp = FTP("opendata.dwd.de")
     ftp.login()
 
     # get the newest file
-    comp = re.compile(r".+\d{2}\.asc\.gz$")
+    comp = re.compile(r".+\d{2}\.asc\.gz$|.+\d{2}\.zip$")
     dwd_fps = list(filter(comp.match, ftp.nlst(dic[para]["ftp_folder"])))
     dwd_fps.sort(reverse=True)
     dwd_new_fps = dwd_fps[0:dic[para]["bands"]]
-
+    
     # download and unzip
     for dwd_fp in dwd_new_fps:
         temp = BytesIO()
         ftp.retrbinary("RETR " + dwd_fp, temp.write)
-        fp = folder.joinpath(Path(dwd_fp).stem[:-6] +
-                             dic["ma_codes"][Path(dwd_fp).stem[-6:-4]] +
-                             ".asc")
-
-        with open(fp, "wb") as f:
-            f.write(gzip.decompress(temp.getvalue()))
+        dwd_fp = Path(dwd_fp)
+        if dwd_fp.suffix == ".gz":
+            fp = folder.joinpath(Path(dwd_fp).stem[:-6] +
+                                dic["ma_codes"][Path(dwd_fp).stem[-6:-4]] +
+                                ".asc")
+            with open(fp, "wb") as f:
+                f.write(gzip.decompress(temp.getvalue()))
+        else:
+            fp = folder.joinpath(
+                Path(dwd_fp).stem[:-2] +
+                dic["ma_codes"][Path(dwd_fp).stem[-2:]] + ".asc")
+            with open(fp, "wb") as f:
+                f.write(zipfile.ZipFile(temp).read(Path(dwd_fp).stem+ ".asc"))
 
 
 def gather_asc_tif(folder, dst="input", crs="EPSG:31467",
-                   dtype="uint16", band_regex=r"(?<=([_\.]))\w{2,3}$"):
+                   dtype="uint16", band_regex=r"(?<=([_\.]))\w{2,4}$"):
     """
     Gather all the ASCII files from a folder into one GeoTiff.
 
@@ -751,7 +763,7 @@ def gather_asc_tif(folder, dst="input", crs="EPSG:31467",
     if dtype == "uint8":
         na_value = 255
     else:
-        na_value = 9999
+        na_value = -999
 
     # get a list of the asc files
     files = list(folder.glob("*.asc"))
@@ -760,14 +772,39 @@ def gather_asc_tif(folder, dst="input", crs="EPSG:31467",
     raster_join = []
     band_names = {}
     for i, file in enumerate(files):
-        raster = rio.open(file).read(fill_value=na_value)[0]
-        raster_join.append(raster)
+        try:
+            with rio.open(file) as raster:
+                raster_np = raster.read(fill_value=na_value)[0]
+                profile = raster.profile
+        except:
+            with open(file) as f:
+                lines = f.readlines()
+            if re.match(".*header.*", lines[0]):
+                last_header_cont = list(filter(re.compile(".*ASCII-Raster-Format.*").match, lines))
+                if len(last_header_cont):
+                    last_header_line = lines.index(last_header_cont[0])
+                    import tempfile
+                    
+                    with tempfile.NamedTemporaryFile(suffix=".asc", delete=False) as repaired_file:
+                        repaired_file.writelines(
+                            [bytes(line, encoding="utf8") for line in lines[last_header_line+1:]])
+                    with rio.open(repaired_file.name) as raster:
+                        raster_np = raster.read(fill_value=na_value)[0]
+                        profile = raster.profile
+
+                    Path(repaired_file.name).unlink() # remove temporary file
+                else:
+                    raise InputError("There was a problem with the input ASC file that could not get resolved")
+            else:
+                raise InputError("There was a problem with the input ASC file that could not get resolved")
+                
+
+        raster_join.append(raster_np)
         band_name = re.search(band_regex, file.stem)[0]
         band_names.update({i+1: band_name})
     raster_join = np.array(raster_join)
 
     # write the GeoTiff file
-    profile = rio.open(file).profile
     profile.update({'driver': 'GTiff', 'dtype': dtype,
                     'nodata': na_value,
                     'count': len(raster_join),
