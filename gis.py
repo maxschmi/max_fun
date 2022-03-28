@@ -281,7 +281,8 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
 
                     # check for multilines in geom
                     if type(geom_bound) == MultiLineString:
-                        lengths = [shared_paths(geom_bound_i, nb_bound).length for geom_bound_i in geom_bound.geoms]
+                        lengths = [shared_paths(geom_bound_i, nb_bound).length 
+                                    for geom_bound_i in geom_bound.geoms]
                         touch.loc[t_i, "shared border length"] = max(lengths)
                     else:
                         touch.loc[t_i, "shared border length"] = shared_paths(
