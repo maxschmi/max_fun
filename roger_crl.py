@@ -55,7 +55,8 @@ ROGER_CF_COLUMNS = {
     "T_Diff": "T Zuschlag (°C)",
     "ET_Wichtung": "ET Wichtung (%)",
     "N Wichtung Winter": "N Wichtung Winter (%)",
-    "Expositionsfaktor": "Expositionsfaktor (%)",
+    "solar radiation factor": "SRF (%)",
+    "SRF" : "SRF %", 
     "Flaechenanteil": "Flaechenanteil (%)"
 }
 this_dir, _ = os.path.split(__file__)
@@ -272,7 +273,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
 
     # check for exposition factor to be added
     if version >= pkgv.parse("2.94.6"):
-        columns.append("Expositionsfaktor")
+        columns.append("solar radiation factor")
     
     # add the area portion if wanted
     if do_area:
@@ -288,7 +289,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
 
 
 def create_cf(cf_path, output_dir, weather_dir, cf_table,
-              dir_rel_to=None, rog_ver="2_92_1"):
+              dir_rel_to=None, rog_ver="2_92_1", create_weather_dir=True):
     """
     Create the control file for RoGeR.
 
@@ -309,10 +310,13 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         The paths in the control files will be relative to this directory.
         If None the paths will be stored as absolute paths.
         The default is None.
-    rog_ver: str
+    rog_ver: str, optional
         The version number of the roger executable.
         E.g. "2_92_1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
         The default is "2_92_1".
+    create_weather_dir: bool, optional
+        Should the weather folder get created if it is not existing?
+        The default is True.
 
     Raises
     ------
@@ -335,7 +339,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         dir_rel_to = Path(dir_rel_to)
     if not output_dir.is_dir():
         output_dir.mkdir()
-    if not weather_dir.is_dir():
+    if create_weather_dir and not weather_dir.is_dir():
         weather_dir.mkdir()
     if not cf_path.suffix == ".csv":
         raise ValueError("The given cf_path has no .csv ending.")
@@ -344,9 +348,6 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
 
     # get roger cf template
     cf_tmplt = get_cf_df_template(version=rog_ver)
-
-    # Check if do area is wanted
-    do_area = re.search("\+[Aa]$", rog_ver)
 
     # get the header template
     tmplt_path = os.path.join(
