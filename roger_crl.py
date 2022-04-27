@@ -37,9 +37,9 @@ ROGER_CF_COLUMNS = {
     "Versiegelung": "Versiegelung (%)", 
     "Bodentiefe": "Bodentiefe (cm)", 
     "GWFA": "GWFA-Wurzeltiefe (cm)", 
-    "MPD_v": "MPD_v (1/m²)",
+    "MPD_v": "MPD_v (1/m2)",
     "MPL_v": "MPL_v (cm)", 
-    "MPD_h": "MPD_h (1/m²)", 
+    "MPD_h": "MPD_h (1/m2)", 
     "TP": "TP (mm/h)", 
     "SL": "SL (%)", 
     "nFK": "nFK (%)", 
@@ -368,8 +368,8 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         output_dir = output_dir.relative_to(dir_rel_to)
         weather_dir = weather_dir.relative_to(dir_rel_to)
 
-    l_header = l_header.replace("_output_dir_", str(output_dir) + "\\")
-    l_header = l_header.replace("_weather_dir_", str(weather_dir) + "\\")
+    l_header = l_header.replace("_output_dir_", str(output_dir) + "/")
+    l_header = l_header.replace("_weather_dir_", str(weather_dir) + "/")
 
     # set number of areas
     l_header = l_header.replace("_num_areas_", str(len(cf_table)))
