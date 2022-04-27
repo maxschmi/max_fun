@@ -37,9 +37,9 @@ ROGER_CF_COLUMNS = {
     "Versiegelung": "Versiegelung (%)", 
     "Bodentiefe": "Bodentiefe (cm)", 
     "GWFA": "GWFA-Wurzeltiefe (cm)", 
-    "MPD_v": "MPD_v (1/m2)",
+    "MPD_v": "MPD_v (1/m²)",
     "MPL_v": "MPL_v (cm)", 
-    "MPD_h": "MPD_h (1/m2)", 
+    "MPD_h": "MPD_h (1/m²)", 
     "TP": "TP (mm/h)", 
     "SL": "SL (%)", 
     "nFK": "nFK (%)", 
@@ -352,7 +352,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     # get the header template
     tmplt_path = os.path.join(
         this_dir, "data", "roger_cf_template_header_20Zeilen.csv")
-    with open(tmplt_path, "r", encoding="ANSI") as f:
+    with open(tmplt_path, "r", encoding="UTF-8") as f:
         l_header = f.read()
 
     # add columns to header
@@ -388,10 +388,10 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     # write table lines
     l_table = cf_table.to_csv(
         sep=";", line_terminator="\n",
-        index=bool_index, encoding="ANSI")
+        index=bool_index, encoding="UTF-8")
 
     # write to file
-    with open(cf_path, "w", encoding="ANSI") as f:
+    with open(cf_path, "w", encoding="UTF-8") as f:
         f.write(l_header + "\n" + l_table)
 
 
@@ -429,7 +429,7 @@ def create_weather_tables(n, n_dt, t, t_dt, et, et_dt,
         If None no Lat and Lon in the header will be 0.
         The default is None.
     et_r_r0 : pandas.Serie or list of (int or float) or int
-        The correction factor for the evapotranpiration data.
+        The correction factor for the Evapotranpiration data.
         If only one value it will get used for all the et data.
         The default is 1.
     name : str, optional
