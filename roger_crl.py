@@ -33,13 +33,13 @@ from packaging import version as pkgv
 
 ROGER_CF_COLUMNS = {
     "index": "No.",
-    "Lanndnutzung": "Lanndnutzung", 
+    "Landnutzung": "Landnutzung", 
     "Versiegelung": "Versiegelung (%)", 
     "Bodentiefe": "Bodentiefe (cm)", 
-    "GWFA": "GWFA-Wurzeltiefe (cm)", 
-    "MPD_v": "MPD_v (1/m²)",
+    "GWFA": "GWFA (cm)", 
+    "MPD_v": "MPD_v (1/m2)",
     "MPL_v": "MPL_v (cm)", 
-    "MPD_h": "MPD_h (1/m²)", 
+    "MPD_h": "MPD_h (1/m2)", 
     "TP": "TP (mm/h)", 
     "SL": "SL (%)", 
     "nFK": "nFK (%)", 
@@ -253,7 +253,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
 
     """
     # get the base columns
-    columns = ["Lanndnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
+    columns = ["Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
                "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
                "Muldenspeicher", "Baueme", "Urban", "N_Wichtung", "T_Diff",
                "ET_Wichtung"]
@@ -348,6 +348,17 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
 
     # get roger cf template
     cf_tmplt = get_cf_df_template(version=rog_ver)
+
+    problem_cols = []
+    for col in cf_table.columns:
+        if (col not in cf_tmplt.columns and 
+                col not in cf_tmplt.rename(ROGER_CF_COLUMNS, axis=1).columns):
+            problem_cols.append(col)
+    if len(problem_cols)>0:
+        raise NameError(
+            "The given column(s) {cols} are not valid for this RoGeR Version ({rog_ver}))".format(
+                cols=', '.join(problem_cols), rog_ver=rog_ver))
+
 
     # get the header template
     tmplt_path = os.path.join(
@@ -774,7 +785,8 @@ def roger_run(roger_exe, cf_files, unuse_cpus=1): # copy from exe
                                                       "{formatted_value}"),
                                               precision=7)],
                       variables={"run": "None"},
-                      term_width=80
+                      term_width=80,
+                      line_breaks=False
                       )
     bar.update(0)
 
@@ -1012,7 +1024,7 @@ def import_tot_zip(zip_fp, with_input=True, columns="all", index_cols=["SIM_ID",
                                     index_cols=index_cols)
 
         # import every file and add to results
-        for zf_file_save in progressbar(zf_list_save[1:]):
+        for zf_file_save in progressbar(zf_list_save[1:], line_breaks=False):
             results_i = import_result_zip(zip_file=zf,
                                           part_arcdir=zf_file_save.parents[1],
                                           with_input=with_input,
@@ -1161,7 +1173,7 @@ def import_mon_zip_agg(zip_fp, skip_init_months, paras="all"):
                                            paras=paras)
 
         # import every file and add to results
-        for zf_file_save in progressbar(zf_list_mon[1:]):
+        for zf_file_save in progressbar(zf_list_mon[1:], line_breaks=False):
             results_i = import_mon_paras_zip_agg(zip_file=zf,
                                                  part_arcdir=zf_file_save.parents[1],
                                                  skip_init_months=skip_init_months,
@@ -1225,7 +1237,7 @@ def import_zips(out_zips, how, kwargs):
     # look and wait for finished processes
     try:
         answs = []
-        bar = ProgressBar(max_value=len(out_zips))
+        bar = ProgressBar(max_value=len(out_zips), line_breaks=False)
         bar.start()
         while len(procs) != 0 :
             for proc in procs:
