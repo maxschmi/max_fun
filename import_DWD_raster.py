@@ -117,7 +117,6 @@ def create_ascii(fn_in, fn_out=None, replace=False):
     if replace:
         fn_in.unlink()
 
-
 def create_xyz(fn_in, fn_out=None, ignore_missings=True,
                replace=False, do_id=False):
     """
@@ -349,7 +348,6 @@ def gather_xyz_gpk(folder, merge_id=False):
     regnie_poly_join.to_file(folder.joinpath("data_merge.gpk"),
                              driver="GPKG")
 
-
 def gather_xyz_tif(folder, dst="input"):
     """
     Gather all the xyz files from a folder into one GeoTiff.
@@ -420,15 +418,212 @@ def gather_xyz_tif(folder, dst="input"):
             band_name = re.search(r"(?<=(\.))\w{2,3}$", file.stem)[0]
             f_dst.set_band_description(i+1, band_name)
 
-
-def download_regnie_ma(folder):
+def gather_asc_tif(folder, dst="input", crs="EPSG:31467",
+                   dtype="uint16", band_regex=r"(?<=([_\.]))\w{2,4}$"):
     """
-    Download the newest regnie multi_annual file and axtract it to a folder.
+    Gather all the ASCII files from a folder into one GeoTiff.
+
+    The advantage is that a Tiff file is not so big.
+
+    Parameters
+    ----------
+    folder : str or Path
+        The path were the \*.asc files are stored in.
+    dst : str or Path, optional
+        The path were the output GeoTiff file gets stored.
+        If "input", the file will get stored in the input folder.
+        If path is a directory the file will get named "regnie_merge.tif".
+        The Default is "input".
+    crs : str, optional
+        The coordinate reference system of the input files.
+        The output file will get the same crs.
+        The parameter needs to be in a rasterio (fiona) format.
+        The default is "EPSG:31467".
+    dtype : str, optional
+        A valid dtype for the raster field values.
+        The default is "uint16".
+    band_regex: str or regex, optional
+        The pattern for which to look in the file.stem to find the name of the band.
+        The default is r"(?<=([_\.]))\w{2,3}$", so the last 2 or 3 letters.
+
+    Raises
+    ------
+    NameError
+        If the given folder is not a folder.
+
+    Returns
+    -------
+    None.
+
+    """
+    # check the folder
+    folder = Path(folder)
+    if not folder.is_dir():
+        if (folder.is_file() and folder.suffix ==".asc"):
+            files = [folder]
+            folder = folder.parent
+        else:
+            raise NameError("The given folder is not a folder or valid filepath!")
+
+    if dst == "input":
+        dst = folder.joinpath("merge.tif")
+    else:
+        dst = Path(dst)
+        if dst.is_dir():
+            dst = dst.joinpath("merge.tif")
+        elif dst.suffix != ".tif" and dst.suffix != ".tiff":
+            raise NameError("The given dst is not a tif-file, " +
+                            "folder or 'input'!")
+
+    # set na value
+    if dtype == "uint8":
+        na_value = 255
+    else:
+        na_value = -999
+
+    # get a list of the asc files
+    if "files" not in locals():
+        files = list(folder.glob("*.asc"))
+
+    # read the asc files and get the band names
+    raster_join = []
+    band_names = {}
+    for i, file in enumerate(files):
+        try:
+            with rio.open(file) as raster:
+                raster_np = raster.read(fill_value=na_value)[0]
+                profile = raster.profile
+        except:
+            with open(file) as f:
+                lines = f.readlines()
+            if re.match(".*header.*", lines[0]):
+                last_header_count = list(filter(re.compile(".*ASCII-Raster-Format.*").match, lines))
+                if len(last_header_count):
+                    last_header_line = lines.index(last_header_count[0])
+                    import tempfile
+                    
+                    with tempfile.NamedTemporaryFile(suffix=".asc", delete=False) as repaired_file:
+                        repaired_file.writelines(
+                            [bytes(line, encoding="utf8") for line in lines[last_header_line+1:]])
+                    with rio.open(repaired_file.name) as raster:
+                        raster_np = raster.read(fill_value=na_value)[0]
+                        profile = raster.profile
+
+                    Path(repaired_file.name).unlink() # remove temporary file
+                else:
+                    raise ValueError("There was a problem with the input ASC file that could not get resolved")
+            else:
+                raise ValueError("There was a problem with the input ASC file that could not get resolved")
+                
+
+        raster_join.append(raster_np)
+        band_name = re.search(band_regex, file.stem)[0]
+        band_names.update({i+1: band_name})
+    raster_join = np.array(raster_join)
+
+    # write the GeoTiff file
+    profile.update({'driver': 'GTiff', 'dtype': dtype,
+                    'nodata': na_value,
+                    'count': len(raster_join),
+                    'crs': crs
+                    })
+
+    with rio.open(dst, 'w', **profile) as f_dst:
+        f_dst.write(raster_join.astype(dtype))
+
+        # add the band name
+        for i, band_name in band_names.items():
+            f_dst.set_band_description(i, band_name)
+
+def gather_nc_tif(folder, dst="input", band_regex=r"(?<=_)\w{3,4}$", crs="EPSG:3034"):
+    """
+    Gather all the NC files from a folder into one GeoTiff.
+
+    The advantage is that a Tiff file is not so big.
+
+    Parameters
+    ----------
+    folder : str or Path
+        The path were the \*.nc files are stored in.
+    dst : str or Path, optional
+        The path were the output GeoTiff file gets stored.
+        If "input", the file will get stored in the input folder.
+        If path is a directory the file will get named "hyras.tif".
+        The Default is "input".
+    band_regex: str or regex, optional
+        The pattern for which to look in the file.stem to find the name of the band.
+        The default is r"(?<=([_\.]))\w{2,3}$", so the last 2 or 3 letters.
+    crs : str, optional
+        The coordinate reference system of the input files.
+        The output file will get the same crs.
+        The parameter needs to be in a rasterio (fiona) format.
+        The default is "EPSG:3034".
+
+    Raises
+    ------
+    NameError
+        If the given folder is not a folder.
+
+    Returns
+    -------
+    None.
+
+    """
+    # check the folder
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise NameError("The given folder is not a folder!")
+
+    if dst == "input":
+        dst = folder.joinpath("merge.tif")
+    else:
+        dst = Path(dst)
+        if dst.is_dir():
+            dst = dst.joinpath("merge.tif")
+        elif dst.suffix != ".tif" and dst.suffix != ".tiff":
+            raise NameError("The given dst is not a tif-file, " +
+                            "folder or 'input'!")
+
+    # get a list of the nc files
+    files = list(folder.glob("*.nc"))
+
+    # read the nc files and get the band names
+    raster_join = []
+    band_names = {}
+    for i, file in enumerate(files):
+        with rio.open(file) as raster:
+            raster_np = raster.read()[0]
+            profile = raster.profile
+            
+        raster_join.append(raster_np)
+        band_name = re.search(band_regex, file.stem)[0]
+        band_names.update({i+1: band_name})
+    raster_join = np.array(raster_join)
+
+    # write the GeoTiff file
+    profile.update({'driver': 'GTiff',
+                    'crs':  crs,
+                    'count': len(raster_join)})
+
+    with rio.open(dst, 'w', **profile) as f_dst:
+        f_dst.write(raster_join)
+
+        # add the band name
+        for i, band_name in band_names.items():
+            f_dst.set_band_description(i, band_name)
+
+
+def download_hyras_ma(folder, period="newest"):
+    """
+    Download the newest HYRAS multi_annual file and extract it to a folder.
 
     Parameters
     ----------
     folder : str or Path
         The folder path where the files get stored in.
+    period : str, optional
+        The climate period to download, e.g. "1991-2020".
+        Alternativly you can enter "newest" to get the most recent climate period.
 
     Raises
     ------
@@ -449,23 +644,34 @@ def download_regnie_ma(folder):
     ftp = FTP("opendata.dwd.de")
     ftp.login()
 
-    # get the newest file
-    ftp_folder = "climate_environment/CDC/grids_germany/multi_annual/regnie/"
-    comp = re.compile(r".+\d{4}\.tar$")
-    dwd_regnie_fps = list(filter(comp.match, ftp.nlst(ftp_folder)))
-    dwd_regnie_fps.sort()
-    newest_regnie_fp = dwd_regnie_fps[len(dwd_regnie_fps)-1]
+    # get the file list
+    ftp_folder = "climate_environment/CDC/grids_germany/multi_annual/hyras_de/precipitation"
+    ftp_files_all = ftp.nlst(ftp_folder)
+    re_last_part = r"_v3-0_de_[a-zA-Z]{3,4}\.nc$"
+    comp = re.compile(r".*\d{4}_\d{4}" + re_last_part)
+    ftp_files = list(filter(comp.match, ftp_files_all))
 
-    # download the tar folder from dwd
-    tar_fp = folder.joinpath(newest_regnie_fp[-8:])
-    with open(tar_fp, "wb") as tar:
-        ftp.retrbinary("RETR " + newest_regnie_fp, tar.write)
+    # get the wanted period
+    if period == "newest":
+        comp = re.compile(r"\d{4}_\d{4}(?=" + re_last_part + ")")
+        possible_periods = list(set(list(map(lambda x: comp.search(x)[0], ftp_files))))
+        possible_periods.sort()
+        period = possible_periods[-1]
+    else:
+        period = period.replace("-", "_")
+        if not re.match(r"\d{4}_\d{4}", period):
+            raise ValueError(f"The given period {period} is not in a valid format."+
+                " \nPlease hand in in the format of e.g. \"1991_2020\".")
 
-    # extract tarfile to folder
-    with tarfile.open(tar_fp) as tar:
-        tar.extractall(folder)
-    tar_fp.unlink()
+    # get files of given period
+    comp = re.compile(f".+{period}{re_last_part}")
+    dwd_hyras_fps = list(filter(comp.match, ftp.nlst(ftp_folder)))
 
+    # download the files from dwd
+    for dwd_fp in dwd_hyras_fps:
+        local_fp = folder.joinpath(Path(dwd_fp).name)
+        with open(local_fp, "wb") as file:
+            ftp.retrbinary("RETR " + dwd_fp, file.write)
 
 def download_regnie_daily(folder, years):
     """
@@ -524,6 +730,50 @@ def download_regnie_daily(folder, years):
             tar.extractall(extract_dir)
         tar_fp.unlink()
 
+def download_regnie_ma(folder):
+    """
+    Download the newest regnie multi_annual file and extract it to a folder.
+
+    Parameters
+    ----------
+    folder : str or Path
+        The folder path where the files get stored in.
+
+    Raises
+    ------
+    NameError
+        If the given folder is not a folder.
+
+    Returns
+    -------
+    None.
+
+    """
+    # check the folder
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise NameError("The given folder is not a folder!")
+
+    # open ftp connection
+    ftp = FTP("opendata.dwd.de")
+    ftp.login()
+
+    # get the newest file
+    ftp_folder = "climate_environment/CDC/grids_germany/multi_annual/regnie/"
+    comp = re.compile(r".+\d{4}\.tar$")
+    dwd_regnie_fps = list(filter(comp.match, ftp.nlst(ftp_folder)))
+    dwd_regnie_fps.sort()
+    newest_regnie_fp = dwd_regnie_fps[len(dwd_regnie_fps)-1]
+
+    # download the tar folder from dwd
+    tar_fp = folder.joinpath(newest_regnie_fp[-8:])
+    with open(tar_fp, "wb") as tar:
+        ftp.retrbinary("RETR " + newest_regnie_fp, tar.write)
+
+    # extract tarfile to folder
+    with tarfile.open(tar_fp) as tar:
+        tar.extractall(folder)
+    tar_fp.unlink()
 
 def download_ma_t(folder):
     """
@@ -576,7 +826,6 @@ def download_ma_t(folder):
 
         with open(fp, "wb") as f:
             f.write(gzip.decompress(temp.getvalue()))
-
 
 def download_ma_et(folder):
     """
@@ -705,118 +954,6 @@ def download_ma(folder, para):
             with open(fp, "wb") as f:
                 f.write(zipfile.ZipFile(temp).read(Path(dwd_fp).stem+ ".asc"))
 
-
-def gather_asc_tif(folder, dst="input", crs="EPSG:31467",
-                   dtype="uint16", band_regex=r"(?<=([_\.]))\w{2,4}$"):
-    """
-    Gather all the ASCII files from a folder into one GeoTiff.
-
-    The advantage is that a Tiff file is not so big.
-
-    Parameters
-    ----------
-    folder : str or Path
-        The path were the \*.xyz files are stored in.
-    dst : str or Path, optional
-        The path were the output GeoTiff file gets stored.
-        If "input", the file will get stored in the input folder.
-        If path is a directory the file will get named "regnie_merge.tif".
-        The Default is "input".
-    crs : str, optional
-        The coordinate reference system of the input files.
-        The output file will get the same crs.
-        The parameter needs to be in a rasterio (fiona) format.
-        The default is "EPSG:31467".
-    dtype : str, optional
-        A valid dtype for the raster field values.
-        The default is "uint16".
-    band_regex: str or regex, optional
-        The pattern for which to look in the file.stem to find the name of the band.
-        The default is r"(?<=([_\.]))\w{2,3}$", so the last 2 or 3 letters.
-
-    Raises
-    ------
-    NameError
-        If the given folder is not a folder.
-
-    Returns
-    -------
-    None.
-
-    """
-    # check the folder
-    folder = Path(folder)
-    if not folder.is_dir():
-        raise NameError("The given folder is not a folder!")
-
-    if dst == "input":
-        dst = folder.joinpath("merge.tif")
-    else:
-        dst = Path(dst)
-        if dst.is_dir():
-            dst = dst.joinpath("merge.tif")
-        elif dst.suffix != ".tif" and dst.suffix != ".tiff":
-            raise NameError("The given dst is not a tif-file, " +
-                            "folder or 'input'!")
-
-    # set na value
-    if dtype == "uint8":
-        na_value = 255
-    else:
-        na_value = -999
-
-    # get a list of the asc files
-    files = list(folder.glob("*.asc"))
-
-    # read the asc files and get the band names
-    raster_join = []
-    band_names = {}
-    for i, file in enumerate(files):
-        try:
-            with rio.open(file) as raster:
-                raster_np = raster.read(fill_value=na_value)[0]
-                profile = raster.profile
-        except:
-            with open(file) as f:
-                lines = f.readlines()
-            if re.match(".*header.*", lines[0]):
-                last_header_cont = list(filter(re.compile(".*ASCII-Raster-Format.*").match, lines))
-                if len(last_header_cont):
-                    last_header_line = lines.index(last_header_cont[0])
-                    import tempfile
-                    
-                    with tempfile.NamedTemporaryFile(suffix=".asc", delete=False) as repaired_file:
-                        repaired_file.writelines(
-                            [bytes(line, encoding="utf8") for line in lines[last_header_line+1:]])
-                    with rio.open(repaired_file.name) as raster:
-                        raster_np = raster.read(fill_value=na_value)[0]
-                        profile = raster.profile
-
-                    Path(repaired_file.name).unlink() # remove temporary file
-                else:
-                    raise InputError("There was a problem with the input ASC file that could not get resolved")
-            else:
-                raise InputError("There was a problem with the input ASC file that could not get resolved")
-                
-
-        raster_join.append(raster_np)
-        band_name = re.search(band_regex, file.stem)[0]
-        band_names.update({i+1: band_name})
-    raster_join = np.array(raster_join)
-
-    # write the GeoTiff file
-    profile.update({'driver': 'GTiff', 'dtype': dtype,
-                    'nodata': na_value,
-                    'count': len(raster_join),
-                    'crs': crs
-                    })
-
-    with rio.open(dst, 'w', **profile) as f_dst:
-        f_dst.write(raster_join.astype(dtype))
-
-        # add the band name
-        for i, band_name in band_names.items():
-            f_dst.set_band_description(i, band_name)
 
 # test
 # fn_regnie = "D:/Dokumenter/UNI/Master/Freiburg/2_Masterarbeit/GIS/DWD/RA701231"
