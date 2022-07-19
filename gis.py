@@ -81,6 +81,9 @@ def resample_raster(input_raster_fp, scale, output_raster_fp=""):
 
 def neighboor_xys(xy_null, dist):
     """Calculate 9 coordinates in a specific distance from a base point."""
+    if dist==0:
+        return [xy_null]
+    
     diag_dist = np.cos(np.pi/4)*dist
     diag_adds_1 = list(itertools.product([diag_dist, -diag_dist], [diag_dist, -diag_dist]))
     diag_adds_2 = list(itertools.product([np.cos(np.pi/8)*dist, -np.cos(np.pi/8)*dist], 
