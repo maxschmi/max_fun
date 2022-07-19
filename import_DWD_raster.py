@@ -879,7 +879,7 @@ def download_ma_et(folder):
 
 def download_ma(folder, para):
     """
-    Download the newest multi_annual raster files for one parameter and axtract them.
+    Download the newest multi_annual raster files for one parameter and extract them.
 
     Parameters
     ----------
@@ -954,16 +954,8 @@ def download_ma(folder, para):
             with open(fp, "wb") as f:
                 f.write(zipfile.ZipFile(temp).read(Path(dwd_fp).stem+ ".asc"))
 
-
-# test
-# fn_regnie = "D:/Dokumenter/UNI/Master/Freiburg/2_Masterarbeit/GIS/DWD/RA701231"
-# create_ascii(fn_regnie)
-# unzip_convert_folder("D:/OneDrive - bwedu/Masterarbeit/GIS/DWD/regnie/multi_anual_81-10")
-# unzip_convert_folder("D:/OneDrive - bwedu/Masterarbeit/GIS/DWD/regnie/multi_anual_81-10",
-#                       out_type="XYZ")
-
 # weitere ideen wenn Zeit da ist:
-    # tif ohne umwege von xyz datei erstellen, alse gather_xyz_tiff, create_xyz
+    # tif ohne umwege von xyz datei erstellen, else gather_xyz_tiff, create_xyz
       # und unzip_convert_folder zusammenführen
     # REGNIE_Daten_aufbereitung Skript in einer Funktion
     # tif only select months, kick JAH, SO,WI,HE,FR
