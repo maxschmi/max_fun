@@ -18,7 +18,7 @@ __version__ = "1.0.0"
 
 # libraries
 import requests
-from shapely.geometry import asShape
+from shapely.geometry import shape
 import numpy as np
 from shapely.geometry import Polygon, Point, LineString
 import geopandas as gpd 
@@ -47,7 +47,7 @@ def geoencode(name, simplified=True):
     # get the first polygon
     for feature in query_answ.json()["features"]:
         if feature["geometry"]["type"] in ["Polygon", "MultiPolygon"]:
-            geom = asShape(feature["geometry"])
+            geom = shape(feature["geometry"])
             break
 
     if simplified:
