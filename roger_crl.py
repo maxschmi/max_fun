@@ -953,19 +953,26 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
         The results of the single run.
 
     """
-    input_fp = part_arcdir.joinpath("Ereignisdaten/bilanz_save.csv")
+    try:
+        results = pd.read_csv(
+            zip_file.open(part_arcdir.joinpath(
+                "Ereignisdaten/bilanz_save.csv").as_posix()),
+            sep=";", skipinitialspace=True, index_col="No")
+        bilanz_save_found = True
+    except:
+        bilanz_save_found=False
 
-    results = pd.read_csv(zip_file.open(input_fp.as_posix()),
-                          sep=";", skipinitialspace=True, index_col="No")
-
-    if with_input:
+    if with_input or not bilanz_save_found:
         res_tot = pd.read_csv(
             zip_file.open(part_arcdir.joinpath(
                     "Ereignisdaten/bilanz_totalwerte.csv"
                     ).as_posix()),
             sep=";", skipinitialspace=True,
             index_col="No", encoding="ANSI", skiprows=1)
-        results = res_tot.iloc[:, :21].join(results)
+        if bilanz_save_found:
+            results = res_tot.iloc[:, :21].join(results)
+        else:
+            results = res_tot
 
     # add station id, sim_id, lanu_id and Bf_id to the results
     results["STAT_ID"] = int(part_arcdir.parent.stem)
@@ -980,7 +987,9 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
 
     return results
 
-def import_tot_zip(zip_fp, with_input=True, columns="all", index_cols=["SIM_ID", "lanu_ID", "BF_ID"]):
+def import_tot_zip(
+        zip_fp, with_input=True, columns="all", 
+        index_cols=["SIM_ID", "lanu_ID", "BF_ID"]):
     """
     Import all the results from one output-zipfile.
 
@@ -1015,6 +1024,9 @@ def import_tot_zip(zip_fp, with_input=True, columns="all", index_cols=["SIM_ID",
         zf_list = pd.Series(zf.namelist()).apply(Path)
         zf_list_save = pd.Series(zf_list)[
             [True if re.search(r".*bilanz_save.csv", file.name) else False for file in zf_list]]
+        if len(zf_list_save)==0:
+            zf_list_save = pd.Series(zf_list)[
+            [True if re.search(r".*bilanz_totalwerte.csv", file.name) else False for file in zf_list]]
 
         # create first entry in df if not existing
         results = import_result_zip(zip_file=zf,
