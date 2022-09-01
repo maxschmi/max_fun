@@ -976,10 +976,14 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
 
     # add station id, sim_id, lanu_id and Bf_id to the results
     results["STAT_ID"] = int(part_arcdir.parent.stem)
-    results[index_cols] = pd.DataFrame(results.index.str.split("_").tolist(),
-                                    columns=index_cols, index=results.index
-                                    ).astype(int)
-    results.set_index(index_cols, inplace=True)
+    if len(index_cols)>0 and results.index.dtype == str:
+        results[index_cols] = pd.DataFrame(
+            results.index.str.split("_").tolist(),
+                                        columns=index_cols, index=results.index
+                                        ).astype(int)
+        results.set_index(index_cols, inplace=True)
+    else:
+        results.index.name = index_cols[0]
 
     # select columns
     if columns != "all":
