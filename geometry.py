@@ -22,14 +22,16 @@ from shapely.geometry import shape
 import numpy as np
 from shapely.geometry import Polygon, Point, LineString, MultiLineString
 from shapely.errors import ShapelyDeprecationWarning
+from shapely.ops import transform
 import geopandas as gpd 
 import rasterio as rio
 import pandas as pd
 import rasterio.mask as riomask
 import warnings
+import pyproj
 
 # functions
-def geoencode(name, simplified=True):
+def geoencode(name, simplified=True, crs="EPSG:4326"):
     """Make a query to Novatim to get the best Polygon.
 
     Parameters
@@ -38,6 +40,8 @@ def geoencode(name, simplified=True):
         The name of the german town or city to look for.
     simplified : boolean
         Should the geom get simplified?
+    crs : str or pyproj CRS 
+        The coordinate reference system to get the results.
 
     Returns
     -------
@@ -56,6 +60,10 @@ def geoencode(name, simplified=True):
 
     if simplified:
         geom = geom.simplify(0.0001)
+    
+    if crs != "EPSG:4326":
+        transformer = pyproj.Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+        geom = transform(transformer.transform, geom)
 
     return geom
 
