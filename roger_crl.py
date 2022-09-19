@@ -112,7 +112,7 @@ def _fill_timeholes(df, timestep):
     df : pandas.DataFrame
         Needs at least a date column named "Datum" or "MESS_DATUM".
     timestep : str or pandas.Timedelta
-        The Timestep between the columns, to use for a continous time serie.
+        The Timestep between the columns, to use for a continuous time serie.
         If string it needs to be in a format readable by pd.Timedelta.
 
     Raises
@@ -123,7 +123,7 @@ def _fill_timeholes(df, timestep):
     Returns
     -------
     new_df : pd.DataFrame
-        The corrected DataFrame with a continous datetime Serie.
+        The corrected DataFrame with a continuous datetime Serie.
         It also has a new variable new_df.filled_date_holes with the number of
         holes that got filled.
 
@@ -134,8 +134,8 @@ def _fill_timeholes(df, timestep):
     elif "MESS_DATUM" in df.columns:
         col_date = "MESS_DATUM"
     else:
-        raise ValueError("Could not detetect a Date column. " +
-                         "No column was named 'Datm' or 'MESS_DATUM'")
+        raise ValueError("Could not find a Date column. " +
+                         "No column was named 'Datum' or 'MESS_DATUM'")
 
     # check if column is in a date format
     try:
@@ -238,6 +238,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
     version : str, optional
         The RoGeR version Number for which to get the template.
         Add "+A" to add an Area column.
+        Add "+SRF" to add a solar radiation column.
         E.g. "2_92_1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
         The default is "2_92_1".
     with_unit : bool, optional
@@ -259,8 +260,13 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
                "ET_Wichtung"]
 
     # check for area
-    do_area = re.search("\+[Aa]$", version)
+    do_area = re.search("\+[Aa]", version)
     if do_area:
+        version = re.sub(do_area.re, "", version)
+
+    # check for do_srf (solar radiation factor)
+    do_srf = re.search("\+((SRF)|(srf))", version)
+    if do_srf:
         version = re.sub(do_area.re, "", version)
 
     # parse the version
@@ -272,7 +278,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         columns.append("N Wichtung Winter")
 
     # check for exposition factor to be added
-    if version >= pkgv.parse("2.94.6"):
+    if do_srf:
         columns.append("solar radiation factor")
     
     # add the area portion if wanted
@@ -975,12 +981,13 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
             results = res_tot
 
     # add station id, sim_id, lanu_id and Bf_id to the results
-    results["STAT_ID"] = int(part_arcdir.parent.stem)
-    if len(index_cols)>0 and results.index.dtype == str:
+    if "STAT_ID" in results.columns:
+        results["STAT_ID"] = int(part_arcdir.parent.stem)
+    if len(index_cols)>0 and type(results.index[0]) == str:
         results[index_cols] = pd.DataFrame(
             results.index.str.split("_").tolist(),
-                                        columns=index_cols, index=results.index
-                                        ).astype(int)
+            columns=index_cols, index=results.index
+            ).astype(int)
         results.set_index(index_cols, inplace=True)
     else:
         results.index.name = index_cols[0]
