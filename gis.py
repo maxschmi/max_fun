@@ -20,6 +20,9 @@ from pathlib import Path
 import multiprocessing as mp
 import tempfile
 from matplotlib import pyplot as plt
+from progressbar import progressbar
+from sklearn import LinearRegression
+import pyproj
 
 
 def resample_raster(input_raster_fp, scale, output_raster_fp=""):
@@ -323,8 +326,6 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
 
     return gdf_out
 
-
-
 def _simplify_shps_mp_part(temp_shp_fp, kwargs):
     temp_shp_fp = Path(temp_shp_fp)
     in_gdf = gpd.read_file(temp_shp_fp)
@@ -537,3 +538,172 @@ def raster_to_contour_polys(raster_array, transform, crs, levels):
                 polys.append(poly)
                 categories.append(i)
     return gpd.GeoSeries(polys, index=categories, crs=crs).buffer(0)
+
+def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src, 
+        window_radius = 2,
+        moving_wind_size=False, max_window_radius = 4, min_dem_std = 4,
+        fix_intercept=False, scale_mean=False):
+    """Refine a climate grid on the basis of a finer DEM.
+
+    Parameters
+    ----------
+    cl : array
+        The climate array of the input raster.
+    cl_dem : array
+        The digital elevation model of the climate raster. 
+        Must be the same CRS and shape of the climate grid.
+    cl_p : dict
+        The rasterio profile of the climate grid
+    dem_fine : array
+        The finer digital elevation model on witch basis the refinement is done.
+    dem_fine_p : dict
+        The rasterio profile of the dem_fine grid
+    dem_fine_src : rasterio.io.DatasetReader or string
+        The opened or closed DatasetReader of the finer DEM.
+        Can also be the filepath to the grid file.
+    window_radius : int, optional
+        The number of cells in each direction around the analyzed climate cell to take into account for the regression.
+        1 would mean that all the 8 direct neighbor cells + plus teh actual cell are taken into account.
+        The default is 2.
+    moving_wind_size : bool, optional
+        Should a moving window size be applied. 
+        This means, that the given window_size is only a minimal number. 
+        If the standard deviation of the DEM cells in the window is lower than 4 meters, the window is expanded by 1 until the standard deviation is enough or more than 4 was added to the window_size.
+        This methods results in better results for flat regions.
+        The default is False.
+    max_window_radius : int, optional
+        Only used if moving_window_size is True.
+        Sets the maximum radius of the window in Climate cell units. 
+        See window_radius for more explanations.
+        The default is 4.
+    min_dem_std : int, optional
+        Only used if moving_window_size is True.
+        Sets the minimal standard deviation of the climate DEM that is accepted in a window.
+        The default is 4.
+    fix_intercept : bool, optional
+        Fix the intercept of the Regression line to 0.
+        The default is False.
+    scale_mean : bool, optional
+        Rescale the refined cells to match the old cell mean.
+        The default is False.
+
+    Returns
+    -------
+    cl_new, quot_of_mean, cl_dem_std, used_wind_size
+        cl_new : array
+            The refined climate raster in the CRS and shape of the dem_fine grid.
+        quot_of_mean: array
+            The quotient of the newly calculated cell means of the refined raster compared to the old cell values in %.
+            The grid is in the cl grid crs and shape.
+         cl_dem_std: array
+            The standard deviation of the dem cells in the used window for a given cell.
+            The grid is in the cl grid crs and shape.
+        used_wind_size: array
+            The used Window size for a given climate cell.
+            The grid is in the cl grid crs and shape.
+    """    
+    # check input
+    if type(dem_fine_src)==str:
+        dem_fine_src = rio.open(dem_fine_src, "r")
+    
+    rowcols_bounds_raw = np.array([[-0.5,-0.5, 0.5, 0.5], [0.5,-0.5,-0.5,0.5]]).reshape((2,-1))
+    tr_cl_to_dem = pyproj.Transformer.from_crs(cl_p["crs"], dem_fine_p["crs"], always_xy=True)
+    cl_new = np.zeros(dem_fine.shape, int).repeat(cl_p["count"])
+    cl_new[:] = cl_p["nodata"]
+    cl_new = cl_new.reshape((cl_p["count"], *dem_fine.shape))
+    quot_of_mean = np.zeros(cl.shape)
+    quot_of_mean[:,:,:] = np.nan
+    cl_dem_std = np.zeros(cl_dem.shape)
+    cl_dem_std[:,:] = np.nan
+    used_wind_size = np.zeros(cl_dem.shape)
+    used_wind_size[:,:] = np.nan
+
+    # itter over climate cells
+    for col in progressbar(range(cl_p["width"]), line_breaks=False):
+        col_min, col_max = (max(col-window_radius,0),min(col+window_radius,cl_p["width"]))
+        for row in range(cl_p["height"]):
+            dem_cell_mean = cl_dem[row,col]
+            if cl[0,row,col] == cl_p["nodata"] or np.isnan(dem_cell_mean):
+                continue
+            row_min, row_max = (max(row-window_radius,0),min(row+window_radius,cl_p["height"]))
+            cl_wind_all = cl[:,row_min:row_max+1,col_min:col_max+1]
+            cl_dem_wind = cl_dem[row_min:row_max+1,col_min:col_max+1]
+
+            # moving window size
+            added_wind = 0
+            max_add_win = max_window_radius-window_radius
+            if moving_wind_size:
+                col_min_bef, col_max_bef = col_min, col_max
+                while np.nanstd(cl_dem_wind) < min_dem_std and added_wind<(max_add_win):
+                    row_min= np.max([0, row_min- 1])
+                    row_max= np.min([cl_p["height"], row_max +1])
+                    col_min =np.max([0, col_min-1])
+                    col_max =np.min([cl_p["width"], col_max+1])
+                    added_wind +=1
+                    cl_dem_wind = cl_dem[row_min:row_max+1,col_min:col_max+1]
+                    cl_wind_all = cl[:,row_min:row_max+1,col_min:col_max+1]
+                if added_wind >0:
+                    col_min, col_max = col_min_bef, col_max_bef
+            
+            used_wind_size[row,col] = window_radius + added_wind
+
+            for i_para in range(cl_p["count"]):
+                # create linear regression
+                cl_cell = cl[i_para,row,col]
+                cl_wind = cl_wind_all[i_para,:,:]
+                if fix_intercept:
+                    regr_wind = LinearRegression(fit_intercept=False)
+                else:
+                    regr_wind = LinearRegression()
+                mask_nas = (~np.isnan(cl_dem_wind))&(cl_wind!=cl_p["nodata"])
+                regr_wind.fit(
+                    cl_dem_wind[mask_nas].reshape(-1, 1) - dem_cell_mean, 
+                    cl_wind[mask_nas].reshape(-1, 1).astype(int)-cl_cell)
+
+                # get boundary coordinates of actual cl cell
+                cl_cell_bds_rowcols = rowcols_bounds_raw.copy()
+                cl_cell_bds_rowcols[0] = cl_cell_bds_rowcols[0]+row
+                cl_cell_bds_rowcols[1] = cl_cell_bds_rowcols[1]+col 
+                cl_cell_bds_xys = np.array(
+                    rio.transform.xy(cl_p["transform"],*cl_cell_bds_rowcols))\
+                    .reshape(2,-1)
+                dem_cell_bds_xys = tr_cl_to_dem.transform(*cl_cell_bds_xys)
+
+                # get dem data 
+                cell_poly =[Polygon(list(zip(*dem_cell_bds_xys)))]
+                try:
+                    cell_wind = rio.mask.geometry_window(
+                        dem_fine_src, cell_poly)
+                except rio.errors.WindowError:
+                    break
+                cell_mask = rio.mask.geometry_mask(
+                    cell_poly, 
+                    transform=dem_fine_src.window_transform(cell_wind), 
+                    invert=False,
+                    out_shape=(int(cell_wind.height), int(cell_wind.width)), 
+                    all_touched=True)
+                cell_wind_slice = cell_wind.toslices()
+                dem_cell = dem_fine[cell_wind_slice].copy()
+                dem_cell[cell_mask]=np.nan
+
+                # predict new climate values
+                dem_cell_na_mask = np.isnan(dem_cell)
+                if np.any(~dem_cell_na_mask):
+                    cl_cell_pred = regr_wind\
+                        .predict(dem_cell[~dem_cell_na_mask].reshape(-1,1)-dem_cell_mean)\
+                        .flatten()+cl_cell
+                    if scale_mean:
+                        cl_cell_pred = np.round(cl_cell_pred*cl_cell/np.mean(cl_cell_pred))\
+                            .astype(int)
+                    cl_cell_pred = np.round(cl_cell_pred).astype(int)
+
+                    # # replace values in cl_new
+                    cl_new_cell = cl_new[i_para,cell_wind_slice[0], cell_wind_slice[1]].copy()
+                    cl_new_cell = cl_new_cell.flatten()
+                    cl_new_cell[~dem_cell_na_mask.flatten()] = cl_cell_pred
+                    cl_new_cell = cl_new_cell.reshape(dem_cell.shape)
+                    cl_new[i_para,cell_wind_slice[0], cell_wind_slice[1]] = cl_new_cell
+
+                    quot_of_mean[i_para,row,col] = np.mean(cl_cell_pred)/cl_cell*100
+                    cl_dem_std[row,col] = np.nanstd(cl_dem_wind)
+    return cl_new, quot_of_mean, cl_dem_std, used_wind_size
