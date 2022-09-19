@@ -541,7 +541,7 @@ def raster_to_contour_polys(raster_array, transform, crs, levels):
 
 def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src, 
         window_radius = 2,
-        moving_wind_size=False, max_window_radius = 4, min_dem_std = 4,
+        moving_wind_size=False, max_window_radius = 6, min_dem_std = 4,
         fix_intercept=False, scale_mean=False):
     """Refine a climate grid on the basis of a finer DEM.
 
@@ -575,7 +575,7 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
         Only used if moving_window_size is True.
         Sets the maximum radius of the window in Climate cell units. 
         See window_radius for more explanations.
-        The default is 4.
+        The default is 6.
     min_dem_std : int, optional
         Only used if moving_window_size is True.
         Sets the minimal standard deviation of the climate DEM that is accepted in a window.
