@@ -21,7 +21,7 @@ import multiprocessing as mp
 import tempfile
 from matplotlib import pyplot as plt
 from progressbar import progressbar
-from sklearn import LinearRegression
+from sklearn.linear_model import LinearRegression
 import pyproj
 
 
