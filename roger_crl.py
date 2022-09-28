@@ -902,8 +902,32 @@ def roger_run(roger_exe, cf_files, unuse_cpus=1): # copy from exe
 
     return failed_runs
 
+def guess_simulation_time(n_runs, runs_per_cf, years):
+    """Guess the needed simulation time for a number of runs.
+
+    Parameters
+    ----------
+    n_runs : int
+        The number of control files to simulate
+    runs_per_cf : int
+        The average number of runs per control file.
+    years : float or int
+        The number of years that get simulated.
+    """    
+    # the data comes from the run_duration.xlsx file
+    df_time = pd.DataFrame(
+        zip(["fuhys001","fuhy1087","fuhy1030", "fuhys003-leaving 15 cores out", "bwUNICluster2.0 (80 cores)"], 
+            ["00:25.858", "00:17.157", "00:19.124", "00:03.141", "00:01.382"]),
+        columns=["PC","time/(10 years * 100 rows * 1 cf)"]).set_index("PC")
+    df_time["time/(10 years * 100 rows * 1 cf)"] = df_time["time/(10 years * 100 rows * 1 cf)"]\
+        .map(lambda x: pd.Timestamp("00:" + x) - pd.Timestamp("00:00:00"))
+    df_time["estimated time for runs"] = df_time["time/(10 years * 100 rows * 1 cf)"] * n_runs/runs_per_cf * runs_per_cf/100 * years/10
+
+    return df_time
+
 
 # for testing of roger run
+
 if False:
     file_dir = Path(os.getcwd())
     file_dir = Path("D:/Dokumenter/UNI/Master/Freiburg/2_Masterarbeit/Python/scripts/functions")
