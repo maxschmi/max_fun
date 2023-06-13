@@ -403,6 +403,10 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     cf_table.rename(ROGER_CF_COLUMNS, axis=1, inplace=True)
 
     # write table lines
+    if pkgv.parse(pd.__version__) > pkgv.parse("1.5.0"):
+        to_csv_kwargs = dict(lineterminator="\n")
+    else:
+        to_csv_kwargs = dict(line_terminator="\n")
     l_table = cf_table.to_csv(
         sep=";", line_terminator="\n",
         index=bool_index, encoding="UTF-8")
