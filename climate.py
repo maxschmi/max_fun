@@ -30,6 +30,11 @@ def et_pen_mont(ta, td, rsds, u2, doy, elev=100, lat=48 , crop="short"):
         Defines the roughness height.
         Short for Grassland.
         The default is "short"
+
+    Returns
+    -------
+    et_d : 1D Array
+        daily potential Evapotranspiration in mm/day
     """   
     # Define constants
     ALPHA = 0.23 # albedo for both short and tall crop
@@ -64,13 +69,10 @@ def et_pen_mont(ta, td, rsds, u2, doy, elev=100, lat=48 , crop="short"):
          np.cos(delta2) * np.sin(w_s)) # extraterristrial radiation (S3.5)
     R_so = (0.75 + (2*10**-5)*elev) * R_a # clear sky radiation (S3.4)
     
-    
-    
     R_nl = SIGMA * (0.34 - 0.14 * np.sqrt(vabar)) * \
         (ta+273.2)**4   * (1.35 * R_s / R_so - 0.35) # estimated net outgoing longwave radiation (S3.3)
     R_nsg = (1 - ALPHA) * R_s # net incoming shortwave radiation (S3.2)
     R_ng = R_nsg - R_nl # net radiation (S3.1)
-    
     
     if (crop == "short"):
         r_s = 70 # will not be used for calculation - just informative
@@ -84,3 +86,47 @@ def et_pen_mont(ta, td, rsds, u2, doy, elev=100, lat=48 , crop="short"):
                 (vas - vabar)/(ta + 273)) / (delta + gamma * (1 + 0.38*u2)) # ASCE-EWRI standardised Penman-Monteith for long grass (S5.19)    
     
     return et_d
+
+
+def pet_hamon(N,T):
+    """Calculates the potential evapotranspiration according to Hamon (1963).
+
+    inspired by:
+        van Tiel, Marit; Freudiger, Daphné; Kohn, Irene; Seibert, Jan; Weiler, Markus; Stahl, Kerstin. (2022) Hydrological modelling of the glacierized headwater catchments in the Rhine basin - technical report. Online under: https://freidok.uni-freiburg.de/fedora/objects/freidok:226492/datastreams/FILE1/content
+
+    Parameters
+    ----------
+    N : 1D Array of float
+        maximum possible hours of daylight on Julian day [h]
+    T : 1D Array of float
+        mean daily temperature in °C.
+
+    Returns
+    -------
+    pET : 1D Array of float
+        potential evapotranspiration in mm/day.
+    """    
+    return np.power(N/12, 2)*np.power(np.e, T/16)
+
+def daylight(latitude,day):
+    """This is a function to calculate the maximum possible daily amount of daylight.
+
+    inspired by: 
+
+    Parameters
+    ----------
+    latitude : float
+        latitude of the station in WGS84
+    day : int
+        julian day of the year from 1 to 365
+    
+    Return
+    ----------
+    daylightamount : np.array with float
+        maximum possible daily amount of daylight in hours
+    """
+    P = np.arcsin(0.39795 * np.cos(0.2163108 + 2 * np.arctan(0.9671396 * np.tan(.00860 * (day - 186)))))
+    pi = np.pi
+    daylightamount = 24 - (24 / pi) * np.arccos(
+        (np.sin((0.8333 * pi / 180) + np.sin(latitude * pi / 180) * np.sin(P)) / (np.cos(latitude * pi / 180) * np.cos(P))))
+    return daylightamount
