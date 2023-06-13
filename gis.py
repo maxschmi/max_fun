@@ -315,7 +315,7 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
             mask_shps_small.area.sort_values().index] # sort smallest areas first
 
     # change nan back
-    for colname, col in gdf_out.iteritems():
+    for colname, col in gdf_out.items():
         if col.dtype in [str, object]:
             gdf_out.loc[col == "NAN", colname] = np.nan
     gdf_out.drop("changed", axis=1, inplace=True)

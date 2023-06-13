@@ -57,7 +57,8 @@ ROGER_CF_COLUMNS = {
     "N Wichtung Winter": "N Wichtung Winter (%)",
     "solar radiation factor": "SRF (%)",
     "SRF" : "SRF %", 
-    "Flaechenanteil": "Flaechenanteil (%)"
+    "Flaechenanteil": "Flaechenanteil (%)",
+    "ZA Tiefe": "ZA Tiefe (cm)",
 }
 this_dir, _ = os.path.split(__file__)
 # privat functions
@@ -239,6 +240,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         The RoGeR version Number for which to get the template.
         Add "+A" to add an Area column.
         Add "+SRF" to add a solar radiation column.
+        Add "+ZAT" to add a ZA Tiefe column.
         E.g. "2_92_1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
         The default is "2_92_1".
     with_unit : bool, optional
@@ -267,7 +269,12 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
     # check for do_srf (solar radiation factor)
     do_srf = re.search("\+((SRF)|(srf))", version)
     if do_srf:
-        version = re.sub(do_area.re, "", version)
+        version = re.sub(do_srf.re, "", version)
+
+    # check for do_srf (solar radiation factor)
+    do_zat = re.search("\+((ZAT)|(zat)|(GRUND_ZA))", version)
+    if do_zat:
+        version = re.sub(do_zat.re, "", version)
 
     # parse the version
     version = pkgv.parse(version.replace("_", "."))
@@ -277,9 +284,13 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         columns[columns.index("N_Wichtung")] = "N Wichtung Sommer"
         columns.append("N Wichtung Winter")
 
-    # check for exposition factor to be added
+    # add exposition factor
     if do_srf:
-        columns.append("solar radiation factor")
+        columns.append("SRF")
+    
+    # add ZA Tiefe
+    if do_zat:
+        columns.append("ZA Tiefe")
     
     # add the area portion if wanted
     if do_area:
@@ -408,8 +419,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     else:
         to_csv_kwargs = dict(line_terminator="\n")
     l_table = cf_table.to_csv(
-        sep=";", line_terminator="\n",
-        index=bool_index, encoding="UTF-8")
+        sep=";", index=bool_index, encoding="UTF-8", **to_csv_kwargs)
 
     # write to file
     with open(cf_path, "w", encoding="UTF-8") as f:
