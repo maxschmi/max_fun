@@ -6,7 +6,6 @@ __author__ = "Max Schmit"
 __copyright__ = "Copyright 2021, Max Schmit"
 
 # libraries
-import os
 import geopandas as gpd
 import pandas as pd
 from datetime import datetime
@@ -163,8 +162,6 @@ def get_dwd_file(zip_filepath):
         df = pd.read_table(f"ftp://{CDC_HOST}/{zip_filepath}",
                              compression="gzip",
                              sep=";",
-                             parse_dates=["Datum"],
-                             date_parser=_dwd_date_parser,
                              skipinitialspace=True,
                              dtype={"Datum":str, "MESS_DATUM":str},
                              na_values=[-999, -9999, "####", "#####", "######"])
