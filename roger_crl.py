@@ -56,7 +56,7 @@ ROGER_CF_COLUMNS = {
     "ET_Wichtung": "ET Wichtung (%)",
     "N Wichtung Winter": "N Wichtung Winter (%)",
     "solar radiation factor": "SRF (%)",
-    "SRF" : "SRF %", 
+    "SRF" : "SRF (%)", 
     "Flaechenanteil": "Flaechenanteil (%)",
     "ZA Tiefe": "ZA Tiefe (cm)",
 }
