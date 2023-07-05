@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """A collection of functions for processes to communicate between each other."""
 from pathlib import Path
-from time import sleep
+import time
 import json
 
 this_dir = Path(__file__).parent.absolute()
@@ -47,11 +47,11 @@ def await_message(key, message, min_time=0, interval_time=5):
     """    
     # wait until other process finishes
     _check_com_file()
-    sleep(min_time)
+    time.sleep(min_time)
     while True:
         com_dict = json.load(fp=COM_FILE.open("r"))
         if key in com_dict and com_dict[key] == message:
-            print("start")
+            print(f"start now at {time.ctime()}")
             return
         else:
-            sleep(interval_time)
+            time.sleep(interval_time)
