@@ -4,3 +4,4 @@ build
 sync.ffs_db
 *.log
 *.code-workspace
+data/process_communication.json
