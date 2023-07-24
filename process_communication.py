@@ -12,6 +12,11 @@ def _check_com_file():
     if not COM_FILE.is_file():
         json.dump({}, open(COM_FILE, 'w'))
 
+def reset_messages():
+    """REset the communication to not have old messages"""
+    if COM_FILE.is_file():
+        json.dump({}, open(COM_FILE, 'w'))
+
 def send_message(key, message):
     """Send a message to another process.
 
