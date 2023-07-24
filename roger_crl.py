@@ -283,6 +283,11 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
     if version >= pkgv.parse("2.93.3"):
         columns[columns.index("N_Wichtung")] = "N Wichtung Sommer"
         columns.append("N Wichtung Winter")
+    
+    if version>= pkgv.parse("4.0"):
+        do_zat = True
+    if version>= pkgv.parse("3.0"):
+        do_srf = True
 
     # add exposition factor
     if do_srf:
