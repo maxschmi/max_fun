@@ -44,9 +44,13 @@ ROGER_CF_COLUMNS = {
     "SL": "SL (%)", 
     "nFK": "nFK (%)", 
     "LK": "LK  (Vol.%)", 
+    "LK_OB": "LK_OB (Vol.%)",
+    "LK_UB": "LK_UB (Vol.%)",
     "PWP": "PWP (Vol.%)", 
     "Theta": "Theta (Vol.%)", 
     "KS": "KS (mm/h)",
+    "KS_OB": "KS_OB (mm/h)",
+    "KS_UB": "KS_UB (mm/h)",
     "Muldenspeicher": "Muldenspeicher (mm)", 
     "Baueme": "Baueme", 
     "Urban": "Urban", 
@@ -241,7 +245,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         Add "+A" to add an Area column.
         Add "+SRF" to add a solar radiation column.
         Add "+ZAT" to add a ZA Tiefe column.
-        E.g. "2_92_1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
+        E.g. "2.92.1" for 1D_WBM_roger_2_92_mx_schmit_1.exe
         The default is "2_92_1".
     with_unit : bool, optional
         Should the columns names be with their unit?
@@ -255,12 +259,6 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         for RoGeR.
 
     """
-    # get the base columns
-    columns = ["Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
-               "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
-               "Muldenspeicher", "Baueme", "Urban", "N_Wichtung", "T_Diff",
-               "ET_Wichtung"]
-
     # check for area
     do_area = re.search("\+[Aa]", version)
     if do_area:
@@ -279,22 +277,50 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
     # parse the version
     version = pkgv.parse(version.replace("_", "."))
 
+    # get the base columns
+    if version < pkgv.parse("2.93.3"):
+        columns = [
+            "Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
+            "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
+            "Muldenspeicher", "Baueme", "Urban", "N_Wichtung", "T_Diff",
+            "ET_Wichtung"]
+    elif version < pkgv.parse("3.0.0"):
+        columns = [
+            "Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
+            "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
+            "Muldenspeicher", "Baueme", "Urban", "N Wichtung Sommer", "T_Diff",
+            "ET_Wichtung", "N Wichtung Winter"]
+    elif version < pkgv.parse("4.0.0"):
+        columns = [
+            "Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
+            "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
+            "Muldenspeicher", "Baueme", "Urban", "N Wichtung Sommer", "T_Diff",
+            "ET_Wichtung", "N Wichtung Winter", "SRF"]
+    elif version <= pkgv.parse("4.28.0"):
+        columns = [
+            "Landnutzung", "Versiegelung", "Bodentiefe", "GWFA", "MPD_v",
+            "MPL_v", "MPD_h", "TP", "SL", "nFK", "LK", "PWP", "Theta", "KS",
+            "Muldenspeicher", "Baueme", "Urban", "N Wichtung Sommer", "T_Diff",
+            "ET_Wichtung", "N Wichtung Winter", "SRF", "ZA Tiefe"]
+    else:
+        columns = [
+            "Landnutzung", "Baueme", "Urban", "Versiegelung", "SL", 
+            "Bodentiefe", "GWFA", "MPD_v",
+            "MPL_v", "MPD_h", "KS_OB", "KS_UB", "TP", 
+            "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe", 
+            "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung", "SRF"]
+
     # check for winter precipitation factor
     if version >= pkgv.parse("2.93.3"):
         columns[columns.index("N_Wichtung")] = "N Wichtung Sommer"
         columns.append("N Wichtung Winter")
-    
-    if version>= pkgv.parse("4.0"):
-        do_zat = True
-    if version>= pkgv.parse("3.0"):
-        do_srf = True
 
     # add exposition factor
-    if do_srf:
+    if do_srf and version < pkgv.parse("3.0.0"):
         columns.append("SRF")
     
     # add ZA Tiefe
-    if do_zat:
+    if do_zat and version < pkgv.parse("4.0.0"):
         columns.append("ZA Tiefe")
     
     # add the area portion if wanted
