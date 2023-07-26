@@ -310,11 +310,6 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
             "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe", 
             "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung", "SRF"]
 
-    # check for winter precipitation factor
-    if version >= pkgv.parse("2.93.3"):
-        columns[columns.index("N_Wichtung")] = "N Wichtung Sommer"
-        columns.append("N Wichtung Winter")
-
     # add exposition factor
     if do_srf and version < pkgv.parse("3.0.0"):
         columns.append("SRF")
