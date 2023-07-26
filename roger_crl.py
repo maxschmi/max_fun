@@ -63,6 +63,8 @@ ROGER_CF_COLUMNS = {
     "SRF" : "SRF (%)", 
     "Flaechenanteil": "Flaechenanteil (%)",
     "ZA Tiefe": "ZA Tiefe (cm)",
+    "GRU_ZH": "ZA Tiefe (cm)",
+    "ZAT": "ZA Tiefe (cm)",
 }
 this_dir, _ = os.path.split(__file__)
 # privat functions
