@@ -51,6 +51,7 @@ ROGER_CF_COLUMNS = {
     "KS": "KS (mm/h)",
     "KS_OB": "KS_OB (mm/h)",
     "KS_UB": "KS_UB (mm/h)",
+    "KS_GEO": "KS_GEO (mm/h)",
     "Muldenspeicher": "Muldenspeicher (mm)", 
     "Baueme": "Baueme", 
     "Urban": "Urban", 
@@ -308,7 +309,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         columns = [
             "Landnutzung" 
             "Bodentiefe", "GWFA", "MPD_v",
-            "MPL_v", "MPD_h", "KS_OB", "KS_UB", "TP", 
+            "MPL_v", "MPD_h", "KS_OB", "KS_UB", "KS_GEO", 
             "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe", 
             "Baueme", "Urban", "Versiegelung", "SL", "SRF", 
             "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung"]
