@@ -307,11 +307,11 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
             "ET_Wichtung", "N Wichtung Winter", "SRF", "ZA Tiefe"]
     else:
         columns = [
-            "Landnutzung" 
+            "Landnutzung", "Versiegelung", "SL",
             "Bodentiefe", "GWFA", "MPD_v",
             "MPL_v", "MPD_h", "KS_OB", "KS_UB", "KS_GEO", 
             "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe", 
-            "Baueme", "Urban", "Versiegelung", "SL", "SRF", 
+            "Baueme", "Urban", "SRF", 
             "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung"]
 
     # add exposition factor
