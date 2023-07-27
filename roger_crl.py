@@ -33,35 +33,35 @@ from packaging import version as pkgv
 
 ROGER_CF_COLUMNS = {
     "index": "No.",
-    "Landnutzung": "Landnutzung", 
-    "Versiegelung": "Versiegelung (%)", 
-    "Bodentiefe": "Bodentiefe (cm)", 
-    "GWFA": "GWFA (cm)", 
+    "Landnutzung": "Landnutzung",
+    "Versiegelung": "Versiegelung (%)",
+    "Bodentiefe": "Bodentiefe (cm)",
+    "GWFA": "GWFA (cm)",
     "MPD_v": "MPD_v (1/m2)",
-    "MPL_v": "MPL_v (cm)", 
-    "MPD_h": "MPD_h (1/m2)", 
-    "TP": "TP (mm/h)", 
-    "SL": "SL (%)", 
-    "nFK": "nFK (%)", 
-    "LK": "LK  (Vol.%)", 
+    "MPL_v": "MPL_v (cm)",
+    "MPD_h": "MPD_h (1/m2)",
+    "TP": "TP (mm/h)",
+    "SL": "SL (%)",
+    "nFK": "nFK (%)",
+    "LK": "LK  (Vol.%)",
     "LK_OB": "LK_OB (Vol.%)",
     "LK_UB": "LK_UB (Vol.%)",
-    "PWP": "PWP (Vol.%)", 
-    "Theta": "Theta (Vol.%)", 
+    "PWP": "PWP (Vol.%)",
+    "Theta": "Theta (Vol.%)",
     "KS": "KS (mm/h)",
     "KS_OB": "KS_OB (mm/h)",
     "KS_UB": "KS_UB (mm/h)",
     "KS_GEO": "KS_GEO (mm/h)",
-    "Muldenspeicher": "Muldenspeicher (mm)", 
-    "Baueme": "Baueme", 
-    "Urban": "Urban", 
-    "N_Wichtung": "N Wichtung (%)", 
-    "N Wichtung Sommer": "N Wichtung Sommer (%)", 
+    "Muldenspeicher": "Muldenspeicher (mm)",
+    "Baueme": "Baueme",
+    "Urban": "Urban",
+    "N_Wichtung": "N Wichtung (%)",
+    "N Wichtung Sommer": "N Wichtung Sommer (%)",
     "T_Diff": "T Zuschlag (°C)",
     "ET_Wichtung": "ET Wichtung (%)",
     "N Wichtung Winter": "N Wichtung Winter (%)",
     "solar radiation factor": "SRF (%)",
-    "SRF" : "SRF (%)", 
+    "SRF" : "SRF (%)",
     "Flaechenanteil": "Flaechenanteil (%)",
     "ZA Tiefe": "ZA Tiefe (cm)",
     "GRU_ZH": "ZA Tiefe (cm)",
@@ -309,19 +309,19 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
         columns = [
             "Landnutzung", "Versiegelung", "SL",
             "Bodentiefe", "GWFA", "MPD_v",
-            "MPL_v", "MPD_h", "KS_OB", "KS_UB", "KS_GEO", 
-            "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe", 
-            "Baueme", "Urban", "SRF", 
+            "MPL_v", "MPD_h", "KS_OB", "KS_UB", "KS_GEO",
+            "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe",
+            "Baueme", "Urban", "SRF",
             "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung"]
 
     # add exposition factor
     if do_srf and version < pkgv.parse("3.0.0"):
         columns.append("SRF")
-    
+
     # add ZA Tiefe
     if do_zat and version < pkgv.parse("4.0.0"):
         columns.append("ZA Tiefe")
-    
+
     # add the area portion if wanted
     if do_area:
         columns.append("Flaechenanteil")
@@ -398,7 +398,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
 
     problem_cols = []
     for col in cf_table.columns:
-        if (col not in cf_tmplt.columns and 
+        if (col not in cf_tmplt.columns and
                 col not in cf_tmplt.rename(ROGER_CF_COLUMNS, axis=1).columns):
             problem_cols.append(col)
     if len(problem_cols)>0:
@@ -438,7 +438,7 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         bool_index = False
 
     # order and rename columns
-    col_order = [key for key in ROGER_CF_COLUMNS.keys() 
+    col_order = [key for key in ROGER_CF_COLUMNS.keys()
                      if key in cf_table.columns]
     cf_table = cf_table[col_order]
     cf_table.rename(ROGER_CF_COLUMNS, axis=1, inplace=True)
@@ -957,10 +957,10 @@ def guess_simulation_time(n_runs, runs_per_cf, years):
         The average number of runs per control file.
     years : float or int
         The number of years that get simulated.
-    """    
+    """
     # the data comes from the run_duration.xlsx file
     df_time = pd.DataFrame(
-        zip(["fuhys001","fuhy1087","fuhy1030", "fuhys003-leaving 15 cores out", "bwUNICluster2.0 (80 cores)"], 
+        zip(["fuhys001","fuhy1087","fuhy1030", "fuhys003-leaving 15 cores out", "bwUNICluster2.0 (80 cores)"],
             ["00:25.858", "00:17.157", "00:19.124", "00:03.141", "00:01.382"]),
         columns=["PC","time/(10 years * 100 rows * 1 cf)"]).set_index("PC")
     df_time["time/(10 years * 100 rows * 1 cf)"] = df_time["time/(10 years * 100 rows * 1 cf)"]\
@@ -1067,7 +1067,7 @@ def import_result_zip(zip_file, part_arcdir, with_input=True, columns="all", ind
     return results
 
 def import_tot_zip(
-        zip_fp, with_input=True, columns="all", 
+        zip_fp, with_input=True, columns="all",
         index_cols=["SIM_ID", "lanu_ID", "BF_ID"]):
     """
     Import all the results from one output-zipfile.
