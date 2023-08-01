@@ -438,10 +438,9 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         bool_index = False
 
     # order and rename columns
-    col_order = [key for key in ROGER_CF_COLUMNS.keys()
-                     if key in cf_table.columns]
-    cf_table = cf_table[col_order]
     cf_table.rename(ROGER_CF_COLUMNS, axis=1, inplace=True)
+    cf_table = cf_table[
+        cf_tmplt.rename(ROGER_CF_COLUMNS, axis=1).columns]
 
     # write table lines
     if pkgv.parse(pd.__version__) > pkgv.parse("1.5.0"):
