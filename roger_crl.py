@@ -66,6 +66,7 @@ ROGER_CF_COLUMNS = {
     "ZA Tiefe": "ZA Tiefe (cm)",
     "GRU_ZH": "ZA Tiefe (cm)",
     "ZAT": "ZA Tiefe (cm)",
+    "M_OB": "Maechtigkeit Oberboden (mm)",
 }
 this_dir, _ = os.path.split(__file__)
 # privat functions
@@ -310,7 +311,7 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
             "Landnutzung", "Versiegelung", "SL",
             "Bodentiefe", "GWFA", "MPD_v",
             "MPL_v", "MPD_h", "KS_OB", "KS_UB", "KS_GEO",
-            "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "ZA Tiefe",
+            "nFK", "LK_OB", "LK_UB", "PWP", "Theta", "Muldenspeicher", "M_OB",
             "Baueme", "Urban", "SRF",
             "N Wichtung Sommer", "N Wichtung Winter", "T_Diff", "ET_Wichtung"]
 
