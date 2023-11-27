@@ -337,7 +337,8 @@ def get_cf_df_template(version="2_92_1", with_unit=False):
 
 
 def create_cf(cf_path, output_dir, weather_dir, cf_table,
-              dir_rel_to=None, rog_ver="2_92_1", create_weather_dir=True):
+              dir_rel_to=None, rog_ver="2_92_1", create_weather_dir=True,
+              check_dirs : bool = True):
     """
     Create the control file for RoGeR.
 
@@ -364,6 +365,10 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
         The default is "2_92_1".
     create_weather_dir: bool, optional
         Should the weather folder get created if it is not existing?
+        legacy support for older versions of roger_crl.
+        The default is True.
+    check_dirs: bool, optional
+        Should the directories get checked and created if not existing?
         The default is True.
 
     Raises
@@ -385,9 +390,9 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
     cf_path = Path(cf_path)
     if dir_rel_to is not None:
         dir_rel_to = Path(dir_rel_to)
-    if not output_dir.is_dir():
+    if check_dirs and not output_dir.is_dir():
         output_dir.mkdir()
-    if create_weather_dir and not weather_dir.is_dir():
+    if (check_dirs and create_weather_dir) and not weather_dir.is_dir():
         weather_dir.mkdir()
     if not cf_path.suffix == ".csv":
         raise ValueError("The given cf_path has no .csv ending.")
@@ -421,8 +426,9 @@ def create_cf(cf_path, output_dir, weather_dir, cf_table,
 
     # make paths absolute or relative and add them to header
     if dir_rel_to is None:
-        output_dir = output_dir.resolve()
-        weather_dir = weather_dir.resolve()
+        if check_dirs:
+            output_dir = output_dir.resolve()
+            weather_dir = weather_dir.resolve()
     else:
         output_dir = output_dir.relative_to(dir_rel_to)
         weather_dir = weather_dir.relative_to(dir_rel_to)
@@ -1107,21 +1113,15 @@ def import_tot_zip(
             zf_list_save = pd.Series(zf_list)[
             [True if re.search(r".*bilanz_totalwerte.csv", file.name) else False for file in zf_list]]
 
-        # create first entry in df if not existing
-        results = import_result_zip(zip_file=zf,
-                                    part_arcdir=zf_list_save.iloc[0].parents[1],
-                                    with_input=with_input,
-                                    columns=columns,
-                                    index_cols=index_cols)
-
         # import every file and add to results
-        for zf_file_save in progressbar(zf_list_save[1:], line_breaks=False):
+        results = None
+        for zf_file_save in progressbar(zf_list_save, line_breaks=False):
             results_i = import_result_zip(zip_file=zf,
                                           part_arcdir=zf_file_save.parents[1],
                                           with_input=with_input,
                                           columns=columns,
                                           index_cols=index_cols)
-            results = results.append(results_i)
+            results = pd.concat([results, results_i])
 
     return results
 
@@ -1257,19 +1257,14 @@ def import_mon_zip_agg(zip_fp, skip_init_months, paras="all"):
         zf_list_mon = pd.Series(zf_list)[
             [True if re.search(r".*monat_val_N.csv", file.name) else False for file in zf_list]]
 
-        # create first entry in df if not existing
-        results = import_mon_paras_zip_agg(zip_file=zf,
-                                           part_arcdir=zf_list_mon.iloc[0].parents[1],
-                                           skip_init_months=skip_init_months,
-                                           paras=paras)
-
         # import every file and add to results
+        results = None
         for zf_file_save in progressbar(zf_list_mon[1:], line_breaks=False):
             results_i = import_mon_paras_zip_agg(zip_file=zf,
                                                  part_arcdir=zf_file_save.parents[1],
                                                  skip_init_months=skip_init_months,
                                                  paras=paras)
-            results = results.append(results_i)
+            results = pd.concat([results, results_i])
 
     return results
 
@@ -1346,11 +1341,10 @@ def import_zips(out_zips, how, kwargs):
         return None
 
     # gather all the results and merge the dataframes
-    results = answs[0]
-
+    results = None
     if len(out_zips) > 0:
-        for results_i in answs[1:]:
-            results = results.append(results_i)
+        for results_i in answs:
+            results = pd.concat([results, results_i])
 
     # check if no duplicates are in the dataframe
     if results.index.has_duplicates :
