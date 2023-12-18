@@ -821,6 +821,8 @@ def gdf_to_geopackage(gdfs, fps, remove_parquet=True):
         fps_pqt.append(fp_pqt)
         gdf.to_parquet(fp_pqt)
 
+    print("Parquets created.")
+
     # create geopackages
     parquet_to_geopackage(fps_pqt)
     if remove_parquet:
