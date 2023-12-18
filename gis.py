@@ -23,6 +23,9 @@ from matplotlib import pyplot as plt
 from progressbar import progressbar
 from sklearn.linear_model import LinearRegression
 import pyproj
+import subprocess
+import time
+from packaging import version
 
 
 def resample_raster(input_raster_fp, scale, output_raster_fp=""):
@@ -86,18 +89,18 @@ def neighboor_xys(xy_null, dist):
     """Calculate 9 coordinates in a specific distance from a base point."""
     if dist==0:
         return [xy_null]
-    
+
     diag_dist = np.cos(np.pi/4)*dist
     diag_adds_1 = list(itertools.product([diag_dist, -diag_dist], [diag_dist, -diag_dist]))
-    diag_adds_2 = list(itertools.product([np.cos(np.pi/8)*dist, -np.cos(np.pi/8)*dist], 
+    diag_adds_2 = list(itertools.product([np.cos(np.pi/8)*dist, -np.cos(np.pi/8)*dist],
                                          [np.sin(np.pi/8)*dist, -np.sin(np.pi/8)*dist]))
-    diag_adds_3 = list(itertools.product([np.cos(np.pi*3/8)*dist, -np.cos(np.pi*3/8)*dist], 
+    diag_adds_3 = list(itertools.product([np.cos(np.pi*3/8)*dist, -np.cos(np.pi*3/8)*dist],
                                          [np.sin(np.pi*3/8)*dist, -np.sin(np.pi*3/8)*dist]))
-    
+
     rect_adds = list(itertools.product([dist, 0, -dist], [dist, 0, -dist]))
     for rem in (list(itertools.product([dist, -dist], [dist, -dist])) + [(0,0)]):
         rect_adds.remove(rem)
-        
+
     neigh_xys_adds = rect_adds + diag_adds_1 + diag_adds_2 + diag_adds_3
     neigh_xys = (np.array(xy_null) + np.array(neigh_xys_adds)).tolist()
     neigh_xys = [tuple(neigh_xy) for neigh_xy in neigh_xys]
@@ -169,14 +172,14 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
         If None only the cat_col will later be in the output GeoDataFrame.
         The default is None.
     comp_raster : str, filepathlike-Path, dict or None, optional
-        The raster on which basis to compare the neighboor. 
+        The raster on which basis to compare the neighboor.
         If a dict is given it should contain:
             np_array: the numpy array of the raster
             crs: the crs of the raster
             transform: the affine transformation of the raster
             nodata: the value for nodata of the raster
         For every Polygon the mean value is calculated from this raster to compare the difference to the neighboor.
-        If given the neighboor cell with the least difference to the inspected cell 
+        If given the neighboor cell with the least difference to the inspected cell
         is taken as replacement and not the cell with the largest border.
         If None then the neighboor cell with the largest common border is taken as replacement.
         The default is None.
@@ -204,20 +207,20 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
     if comp_raster is not None:
         if type(comp_raster) == dict:
             raster_crs = comp_raster["crs"]
-            zonalstat_kwargs = dict( 
-                raster=comp_raster["np_array"], 
-                affine=comp_raster["transform"], 
-                stats=["mean"], 
-                nodata=comp_raster["nodata"], 
+            zonalstat_kwargs = dict(
+                raster=comp_raster["np_array"],
+                affine=comp_raster["transform"],
+                stats=["mean"],
+                nodata=comp_raster["nodata"],
                 all_touched=True)
         else:
-            with rio.open(comp_raster) as raster:      
+            with rio.open(comp_raster) as raster:
                 raster_crs = raster.crs
-                zonalstat_kwargs = dict( 
-                    raster=raster.read(1), 
-                    affine=raster.transform, 
-                    stats=["mean"], 
-                    nodata=raster.profile["nodata"], 
+                zonalstat_kwargs = dict(
+                    raster=raster.read(1),
+                    affine=raster.transform,
+                    stats=["mean"],
+                    nodata=raster.profile["nodata"],
                     all_touched=True)
 
     # prepare iteration
@@ -247,7 +250,7 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
             #     continue
             if (touch["changed"].sum() > 0):
                 touch = touch.dissolve(dis_cols, sort=False, as_index=False
-                                      ).explode(ignore_index=True, index_parts=False) 
+                                      ).explode(ignore_index=True, index_parts=False)
             elif touch.empty:
                 continue
 
@@ -273,7 +276,7 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
                 if touch.loc[repl_id, "raster_diff"] in touch.drop(repl_id)["raster_diff"]:
                     touch = touch[touch["raster_diff"] == touch.loc[repl_id, "raster_diff"]]
                     repl_id = None
-            
+
             # get biggest neighbor
             if repl_id is None:
                 geom_bound = geom.boundary
@@ -287,7 +290,7 @@ def simplify_shps(gdf_in, area_lim, cat_col, keep_cols=None, comp_raster=None):
 
                     # check for multilines in geom
                     if type(geom_bound) == MultiLineString:
-                        lengths = [shared_paths(geom_bound_i, nb_bound).length 
+                        lengths = [shared_paths(geom_bound_i, nb_bound).length
                                     for geom_bound_i in geom_bound.geoms]
                         touch.loc[t_i, "shared border length"] = max(lengths)
                     else:
@@ -334,7 +337,7 @@ def _simplify_shps_mp_part(temp_shp_fp, kwargs):
     out_gdf.to_file(temp_shp_fp.parent.joinpath(temp_shp_fp.stem + "_simplified.shp"))
 
 def simplify_shps_mp(
-        gdf_in, dist_lim=10000, 
+        gdf_in, dist_lim=10000,
         **kwargs):
     """
     Simplify a set of Polygons by a column and an area limit.
@@ -352,7 +355,7 @@ def simplify_shps_mp(
         as the shapes change and the index would be confusing.
     dist_lim : int
         The distance in meters around the middle-lines around wich the polygons in the first simplification won't get simplified.
-        The Default is 10000. 
+        The Default is 10000.
     **kwargs:
         The keyword arguments for simplify_shps() function.
 
@@ -367,31 +370,31 @@ def simplify_shps_mp(
     min_bounds = gdf_in.bounds.min()
     mean_x = (max_bounds["maxx"] + min_bounds["minx"])/2
     mean_y = (max_bounds["maxy"] + min_bounds["miny"])/2
-    
+
     # split in 4 parts
     parts = []
     parts_border = []
     # 1. Quarter
     parts.append(gdf_in[(gdf_in.bounds["miny"] >= mean_y) & (gdf_in.bounds["maxx"] <= mean_x)].copy())
     parts_border.append(parts[-1][
-        (parts[-1].bounds["miny"] < (mean_y + dist_lim)) & 
+        (parts[-1].bounds["miny"] < (mean_y + dist_lim)) &
         (parts[-1].bounds["maxx"] > (mean_x - dist_lim))].copy())
     # 2. Quarter
     parts.append(gdf_in[(gdf_in.bounds["miny"] >= mean_y) & (gdf_in.bounds["minx"] > mean_x)].copy())
     parts_border.append(parts[-1][
-        (parts[-1].bounds["miny"] < (mean_y + dist_lim)) & 
+        (parts[-1].bounds["miny"] < (mean_y + dist_lim)) &
         (parts[-1].bounds["minx"] < (mean_x + dist_lim))].copy())
     # 3. Quarter
     parts.append(gdf_in[(gdf_in.bounds["maxy"] < mean_y) & (gdf_in.bounds["maxx"] <= mean_x)].copy())
     parts_border.append(parts[-1][
-        (parts[-1].bounds["maxy"] > (mean_y - dist_lim)) & 
+        (parts[-1].bounds["maxy"] > (mean_y - dist_lim)) &
         (parts[-1].bounds["maxx"] > (mean_x - dist_lim))].copy())
     # 4. Quarter
     parts.append(gdf_in[(gdf_in.bounds["maxy"] < mean_y) & (gdf_in.bounds["minx"] > mean_x)].copy())
     parts_border.append(parts[-1][
-        (parts[-1].bounds["maxy"] > (mean_y - dist_lim)) & 
+        (parts[-1].bounds["maxy"] > (mean_y - dist_lim)) &
         (parts[-1].bounds["minx"] < (mean_x + dist_lim))].copy())
-    
+
     # exclude small shapes in border area
     for part, part_border in zip(parts, parts_border):
         part_excl_shps = part_border[part_border.area < kwargs["area_lim"]]
@@ -418,9 +421,9 @@ def simplify_shps_mp(
         pool = mp.Pool(processes=4)
         for i in range(4):
             res = pool.apply_async(
-                _simplify_shps_mp_part, 
+                _simplify_shps_mp_part,
                 args=(
-                    str(temp_dir.joinpath("temp_part_{}.shp".format(str(i)))), 
+                    str(temp_dir.joinpath("temp_part_{}.shp".format(str(i)))),
                     kwargs)
             )
         pool.close()
@@ -433,14 +436,14 @@ def simplify_shps_mp(
             part_fp = temp_dir.joinpath("temp_part_{}_simplified.shp".format(str(i)))
             parts_simplified.append(gpd.read_file(part_fp))
             del_shp(part_fp)
-    
+
     # temp_dir_obj.cleanup()
-    
+
     if excluded_shps.index.name in parts_simplified[0].columns:
         excluded_shps.reset_index(inplace=True)
-        
+
     simpl_gdf = pd.concat(
-        parts_simplified +  
+        parts_simplified +
         [excluded_shps[parts_simplified[0].columns]]
         ).reset_index(drop=True)
 
@@ -451,7 +454,7 @@ def simplify_shps_mp(
 
 def del_shp(fp):
     """Delete all the files of one ESRI-Shape file.
-    
+
     fp : path-like object or string
         The file to be deleted.
     """
@@ -539,7 +542,7 @@ def raster_to_contour_polys(raster_array, transform, crs, levels):
                 categories.append(i)
     return gpd.GeoSeries(polys, index=categories, crs=crs).buffer(0)
 
-def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src, 
+def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
         window_radius = 2,
         moving_wind_size=False, max_window_radius = 6, min_dem_std = 4,
         fix_intercept=False, scale_mean=False):
@@ -550,7 +553,7 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
     cl : array
         The climate array of the input raster.
     cl_dem : array
-        The digital elevation model of the climate raster. 
+        The digital elevation model of the climate raster.
         Must be the same CRS and shape of the climate grid.
     cl_p : dict
         The rasterio profile of the climate grid
@@ -566,14 +569,14 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
         1 would mean that all the 8 direct neighbor cells + plus teh actual cell are taken into account.
         The default is 2.
     moving_wind_size : bool, optional
-        Should a moving window size be applied. 
-        This means, that the given window_size is only a minimal number. 
+        Should a moving window size be applied.
+        This means, that the given window_size is only a minimal number.
         If the standard deviation of the DEM cells in the window is lower than 4 meters, the window is expanded by 1 until the standard deviation is enough or more than 4 was added to the window_size.
         This methods results in better results for flat regions.
         The default is False.
     max_window_radius : int, optional
         Only used if moving_window_size is True.
-        Sets the maximum radius of the window in Climate cell units. 
+        Sets the maximum radius of the window in Climate cell units.
         See window_radius for more explanations.
         The default is 6.
     min_dem_std : int, optional
@@ -601,11 +604,11 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
         used_wind_size: array
             The used Window size for a given climate cell.
             The grid is in the cl grid crs and shape.
-    """    
+    """
     # check input
     if type(dem_fine_src)==str:
         dem_fine_src = rio.open(dem_fine_src, "r")
-    
+
     rowcols_bounds_raw = np.array([[-0.5,-0.5, 0.5, 0.5], [0.5,-0.5,-0.5,0.5]]).reshape((2,-1))
     tr_cl_to_dem = pyproj.Transformer.from_crs(cl_p["crs"], dem_fine_p["crs"], always_xy=True)
     cl_new = np.zeros(dem_fine.shape, int).repeat(cl_p["count"])
@@ -644,7 +647,7 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
                     cl_wind_all = cl[:,row_min:row_max+1,col_min:col_max+1]
                 if added_wind >0:
                     col_min, col_max = col_min_bef, col_max_bef
-            
+
             used_wind_size[row,col] = window_radius + added_wind
 
             for i_para in range(cl_p["count"]):
@@ -657,19 +660,19 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
                     regr_wind = LinearRegression()
                 mask_nas = (~np.isnan(cl_dem_wind))&(cl_wind!=cl_p["nodata"])
                 regr_wind.fit(
-                    cl_dem_wind[mask_nas].reshape(-1, 1) - dem_cell_mean, 
+                    cl_dem_wind[mask_nas].reshape(-1, 1) - dem_cell_mean,
                     cl_wind[mask_nas].reshape(-1, 1).astype(int)-cl_cell)
 
                 # get boundary coordinates of actual cl cell
                 cl_cell_bds_rowcols = rowcols_bounds_raw.copy()
                 cl_cell_bds_rowcols[0] = cl_cell_bds_rowcols[0]+row
-                cl_cell_bds_rowcols[1] = cl_cell_bds_rowcols[1]+col 
+                cl_cell_bds_rowcols[1] = cl_cell_bds_rowcols[1]+col
                 cl_cell_bds_xys = np.array(
                     rio.transform.xy(cl_p["transform"],*cl_cell_bds_rowcols))\
                     .reshape(2,-1)
                 dem_cell_bds_xys = tr_cl_to_dem.transform(*cl_cell_bds_xys)
 
-                # get dem data 
+                # get dem data
                 cell_poly =[Polygon(list(zip(*dem_cell_bds_xys)))]
                 try:
                     cell_wind = rio.mask.geometry_window(
@@ -677,10 +680,10 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
                 except rio.errors.WindowError:
                     break
                 cell_mask = rio.mask.geometry_mask(
-                    cell_poly, 
-                    transform=dem_fine_src.window_transform(cell_wind), 
+                    cell_poly,
+                    transform=dem_fine_src.window_transform(cell_wind),
                     invert=False,
-                    out_shape=(int(cell_wind.height), int(cell_wind.width)), 
+                    out_shape=(int(cell_wind.height), int(cell_wind.width)),
                     all_touched=True)
                 cell_wind_slice = cell_wind.toslices()
                 dem_cell = dem_fine[cell_wind_slice].copy()
@@ -707,3 +710,119 @@ def refine_climate_grid(cl, cl_dem, cl_p, dem_fine, dem_fine_p, dem_fine_src,
                     quot_of_mean[i_para,row,col] = np.mean(cl_cell_pred)/cl_cell*100
                     cl_dem_std[row,col] = np.nanstd(cl_dem_wind)
     return cl_new, quot_of_mean, cl_dem_std, used_wind_size
+
+def parquet_to_geopackage(fps_pqt:list):
+    """Convert a list of parquet files to geopackages with gdal.
+
+    Uses ogr2ogr to convert the parquet files to geopackages.
+
+    Parameters
+    ----------
+    fps_pqt : list of path-like objects
+        The list of parquet files to convert.
+    """
+    # load libraries, ass osgeo only needed for this function
+    import osgeo
+
+    # check if ogr2ogr is available
+    if version.parse(osgeo.ver_str(osgeo.gdal_version)) >= version.parse("3.5.0"):
+        fp_ogr2ogr = Path(
+            subprocess.run(["where", "ogr2ogr"], stdout=subprocess.PIPE
+                        ).stdout.decode().replace("\r\n", ""))
+        if not fp_ogr2ogr.exists():
+            Path(osgeo.__path__[0]).joinpath("ogr2ogr.exe")
+        use_gdal = True
+    else:
+        print("GDAL version must be >= 3.5.0 to convert parquets quickly")
+        use_gdal = False
+
+    # get processes and filepaths
+    procs = {}
+    manually = {}
+    fps = {}
+    for fp_pqt in fps_pqt:
+        fp_gpkg = fp_pqt.parent.joinpath(fp_pqt.stem+".gpkg")
+        if use_gdal:
+            procs.update({
+                fp_pqt:subprocess.Popen(
+                        [fp_ogr2ogr.as_posix(),
+                            "-f", 'GPKG',
+                            '-gt', '65536',
+                            fp_gpkg.as_posix(),
+                            fp_pqt.as_posix(),
+                            fp_pqt.stem],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)})
+        else:
+            manually.update({fp_pqt:fp_gpkg})
+
+    # create geopackages
+    while len(procs) > 0 or len(manually) > 0:
+        drop_keys = []
+        for key, proc in procs.items():
+            if proc.poll() is not None:
+                if proc.returncode != 0:
+                    print("There was an error executing: " + " ".join(proc.args))
+                    print(proc.stderr.read())
+                    print("\nTherefor the geopackage is written manualy")
+                    manually.update({key:fps_pqt[key]})
+                drop_keys.append(key)
+        for key in drop_keys:
+            procs.pop(key)
+
+        for fp_pqt in list(manually.keys()):
+            manually.pop(fp_pqt)
+            fp_gpkg = fps[fp_pqt]
+            gdf = gpd.read_parquet(fp_pqt)
+            gdf.to_file(fp_gpkg, driver="GPKG", layer=fp_gpkg.stem, chunk_size=65536)
+        time.sleep(5)
+
+def gdf_to_geopackage(gdfs, fps, remove_parquet=True):
+    """Write a list of GeoDataFrames to geopackages.
+
+    First writes the dataframes to parquets and then converts them to geopackages.
+    Uses GDAL to write GeoPackages, as this is way faster.
+
+    Parameters
+    ----------
+    gdfs : list of gpd.GeoDataFrame or gpd.GeoDataFrame
+        A list of GeoDataFrames to write to parquet files.
+        Can also be a single GeoDataFrame.
+    fps : list of path-like objects or path-like object
+        The filepaths of the geopackage files.
+        Can also be a single filepath.
+    remove_parquet : bool, optional
+        Should the parquet files be removed after conversion.
+        The default is True.
+    """
+    # check input
+    if type(gdfs) != list:
+        gdfs = [gdfs]
+    if type(fps) != list:
+        fps = [fps]
+    if len(gdfs) != len(fps):
+        raise ValueError("The number of GeoDataFrames and filepaths must be equal.")
+
+    # check filepaths
+    for i, fp in enumerate(fps):
+        if type(fp) == str:
+            fps[i] = Path(fp)
+        if fp.suffix != ".gpkg":
+            raise ValueError("The filepaths must be geopackage files.")
+
+    # check if GeoDataframes are given
+    for i, gdf in enumerate(gdfs):
+        if type(gdf) != gpd.GeoDataFrame:
+            raise ValueError("The input must be a GeoDataFrame or a list of GeoDataFrames.")
+
+    # create parquets
+    fps_pqt = []
+    for gdf, fp in zip(gdfs, fps):
+        fp_pqt = fp.parent.joinpath(fp.stem+".parquet")
+        fps_pqt.append(fp_pqt)
+        gdf.to_parquet(fp_pqt)
+
+    # create geopackages
+    parquet_to_geopackage(fps_pqt)
+    if remove_parquet:
+        for fp_pqt in fps_pqt:
+            fp_pqt.unlink()
