@@ -722,10 +722,10 @@ def parquet_to_geopackage(fps_pqt:list):
         The list of parquet files to convert.
     """
     # check input
-    if type(fps_pqt) != list:
+    if not isinstance(fps_pqt,list):
         fps_pqt = [fps_pqt]
     for i, fp in enumerate(fps_pqt):
-        if type(fp) == str:
+        if isinstance(fp, str):
             fps_pqt[i] = Path(fp)
         if fp.suffix != ".parquet":
             raise ValueError("The filepaths must be parquet files.")
@@ -810,16 +810,16 @@ def gdf_to_geopackage(gdfs, fps, remove_parquet=True, **kwargs):
         The default is True.
     """
     # check input
-    if type(gdfs) != list:
+    if not isinstance(gdfs, list):
         gdfs = [gdfs]
-    if type(fps) != list:
+    if not isinstance(fps, list):
         fps = [fps]
     if len(gdfs) != len(fps):
         raise ValueError("The number of GeoDataFrames and filepaths must be equal.")
 
     # check filepaths
     for i, fp in enumerate(fps):
-        if type(fp) == str:
+        if isinstance(fp, str):
             fps[i] = Path(fp)
         if fp.suffix != ".gpkg":
             raise ValueError("The filepaths must be geopackage files.")
