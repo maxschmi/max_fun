@@ -721,11 +721,25 @@ def parquet_to_geopackage(fps_pqt:list):
     fps_pqt : list of path-like objects
         The list of parquet files to convert.
     """
+    # check input
+    if type(fps_pqt) != list:
+        fps_pqt = [fps_pqt]
+    for i, fp in enumerate(fps_pqt):
+        if type(fp) == str:
+            fps_pqt[i] = Path(fp)
+        if fp.suffix != ".parquet":
+            raise ValueError("The filepaths must be parquet files.")
+
     # load libraries, ass osgeo only needed for this function
     import osgeo
 
     # check if ogr2ogr is available
-    if version.parse(osgeo.ver_str(osgeo.gdal_version)) >= version.parse("3.5.0"):
+    if isinstance(osgeo.gdal_version, tuple):
+        gdal_version = version.parse(str(osgeo.gdal_version)[1:-1].replace(", ", "."))
+    else:
+        gdal_version = version.parse(osgeo.ver_str(osgeo.gdal_version))
+
+    if gdal_version >= version.parse("3.5.0"):
         fp_ogr2ogr = Path(
             subprocess.run(["where", "ogr2ogr"], stdout=subprocess.PIPE
                         ).stdout.decode().replace("\r\n", ""))
@@ -742,6 +756,7 @@ def parquet_to_geopackage(fps_pqt:list):
     fps = {}
     for fp_pqt in fps_pqt:
         fp_gpkg = fp_pqt.parent.joinpath(fp_pqt.stem+".gpkg")
+        fps[fp_pqt] = fp_gpkg
         if use_gdal:
             procs.update({
                 fp_pqt:subprocess.Popen(
@@ -776,7 +791,7 @@ def parquet_to_geopackage(fps_pqt:list):
             gdf.to_file(fp_gpkg, driver="GPKG", layer=fp_gpkg.stem, chunk_size=65536)
         time.sleep(5)
 
-def gdf_to_geopackage(gdfs, fps, remove_parquet=True):
+def gdf_to_geopackage(gdfs, fps, remove_parquet=True, **kwargs):
     """Write a list of GeoDataFrames to geopackages.
 
     First writes the dataframes to parquets and then converts them to geopackages.
@@ -819,7 +834,7 @@ def gdf_to_geopackage(gdfs, fps, remove_parquet=True):
     for gdf, fp in zip(gdfs, fps):
         fp_pqt = fp.parent.joinpath(fp.stem+".parquet")
         fps_pqt.append(fp_pqt)
-        gdf.to_parquet(fp_pqt)
+        gdf.to_parquet(fp_pqt, **kwargs)
 
     print("Parquets created.")
 
