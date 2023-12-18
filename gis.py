@@ -753,10 +753,8 @@ def parquet_to_geopackage(fps_pqt:list):
     # get processes and filepaths
     procs = {}
     manually = {}
-    fps = {}
     for fp_pqt in fps_pqt:
         fp_gpkg = fp_pqt.parent.joinpath(fp_pqt.stem+".gpkg")
-        fps[fp_pqt] = fp_gpkg
         if use_gdal:
             procs.update({
                 fp_pqt:subprocess.Popen(
@@ -785,8 +783,7 @@ def parquet_to_geopackage(fps_pqt:list):
             procs.pop(key)
 
         for fp_pqt in list(manually.keys()):
-            manually.pop(fp_pqt)
-            fp_gpkg = fps[fp_pqt]
+            fp_gpkg = manually.pop(fp_pqt)
             gdf = gpd.read_parquet(fp_pqt)
             gdf.to_file(fp_gpkg, driver="GPKG", layer=fp_gpkg.stem, chunk_size=65536)
         time.sleep(5)
